@@ -53,7 +53,7 @@ const HomeScreen = ({ navigation }) => {
             setAccessToken(storedAccessToken);
             setRefreshToken(storedRefreshToken);
             setLocationQueue(storedQueue ? JSON.parse(storedQueue) : []);
-            setQueueLength(storedQueue.length);
+            setQueueLength(storedQueue ? JSON.parse(storedQueue).length : 0);
         };
         loadTokensAndQueue();
     }, []);
@@ -163,43 +163,50 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const enqueueLocation = async (locationData) => {
-        console.log("Updating queue")
-        const updatedQueue = [...locationQueue, locationData];
-        console.log(updatedQueue)
-        setLocationQueue(updatedQueue);
-        setQueueLength(updatedQueue.length);
-        await AsyncStorage.setItem('locationQueue', JSON.stringify(updatedQueue));
+        setLocationQueue((prevQueue) => {
+            const updatedQueue = [...prevQueue, locationData];
+            AsyncStorage.setItem('locationQueue', JSON.stringify(updatedQueue));
+            return updatedQueue;
+        });
+        setQueueLength((prevLength) => prevLength + 1);
     };
 
     const processQueue = async (token) => {
-        const queue = [...locationQueue];
-
-        while (queue.length > 0) {
-            const item = queue.shift();
-            try {
-                const options = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify(item),
-                };
-                const response = await fetchWithTimeout('http://192.168.1.145:80/update', options);
-
-                if (!response.ok) {
-                    throw new Error('Failed to update location');
+        setLocationQueue((prevQueue) => {
+            const queue = [...prevQueue];
+    
+            const processItem = async () => {
+                if (queue.length === 0) {
+                    return;
                 }
-
-                //update state and storage with the reduced queue
-                setLocationQueue(queue);
-                setQueueLength(queue.length);
-                await AsyncStorage.setItem('locationQueue', JSON.stringify(queue));
-            } catch (error) {
-                console.error('Error processing queue item:', error);
-                break; //If error break and leave the remaining items in the queue
-            }
-        }
+    
+                const item = queue.shift();
+                try {
+                    const options = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(item),
+                    };
+                    const response = await fetchWithTimeout('http://192.168.1.145:80/update', options);
+    
+                    if (!response.ok) {
+                        throw new Error('Failed to update location');
+                    }
+    
+                    AsyncStorage.setItem('locationQueue', JSON.stringify(queue));
+                    setQueueLength(queue.length);
+                    await processItem();
+                } catch (error) {
+                    console.error('Error processing queue item:', error);
+                }
+            };
+    
+            processItem();
+            return queue;
+        });
     };
 
     const refreshAuthToken = async () => {
