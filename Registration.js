@@ -7,11 +7,16 @@ const baseURL = 'http://192.168.1.145:80'
 export default function Registration() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [verifyPassword, setVerifyPassword] = useState('');
     const navigation = useNavigation();
 
     const handleRegister = () => {
-        if(!username || !password) {
+        if(!username || !password || !verifyPassword) {
             Alert.alert('Error', 'Please fill in all fields.');
+            return;
+        }
+        if(password !== verifyPassword) {
+            Alert.alert('Error', 'Passwords do not match.');
             return;
         }
         const url = baseURL + '/register'; // Replace with your API endpoint
@@ -60,6 +65,13 @@ export default function Registration() {
                 value={password}
                 onChangeText={(text) => setPassword(text)}
                 placeholder="Enter password"
+                secureTextEntry
+            />
+            <Text>Verify Password:</Text>
+            <TextInput
+                value={verifyPassword}
+                onChangeText={(text) => setVerifyPassword(text)}
+                placeholder="Verify password"
                 secureTextEntry
             />
             <Button title="Register" onPress={handleRegister} />
