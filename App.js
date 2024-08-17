@@ -8,6 +8,7 @@ import Registration from './Registration';
 import { jwtDecode } from 'jwt-decode';
 
 const Stack = createStackNavigator();
+const baseURL = 'http://192.168.1.145:80'; //replace later
 
 const fetchWithTimeout = async (url, options, timeout = 3000) => { //5 second timer on request
     const controller = new AbortController();
@@ -81,7 +82,7 @@ const HomeScreen = ({ navigation }) => {
                 },
                 body: JSON.stringify({ username, password }),
             };
-            const response = await fetchWithTimeout('http://192.168.1.145:80/login', options);
+            const response = await fetchWithTimeout(baseURL + '/login', options);
 
             if (!response.ok) {
                 throw new Error('Login failed');
@@ -142,13 +143,14 @@ const HomeScreen = ({ navigation }) => {
                 },
                 body: JSON.stringify(data),
             };
-            const response = await fetchWithTimeout('http://192.168.1.145:80/update', options);
+            const response = await fetchWithTimeout(baseURL + '/update', options);
 
             if (!response.ok) {
                 throw new Error('Failed to update location');
             }
 
-            if (locationQueue.length > 0) {
+            if (queueLength > 0) { //if anything in the queue process it
+                console.log("Clearing queue")
                 await processQueue(token);
             }
 
@@ -190,7 +192,7 @@ const HomeScreen = ({ navigation }) => {
                         },
                         body: JSON.stringify(item),
                     };
-                    const response = await fetchWithTimeout('http://192.168.1.145:80/update', options);
+                    const response = await fetchWithTimeout(baseURL + '/update', options);
     
                     if (!response.ok) {
                         throw new Error('Failed to update location');
@@ -219,7 +221,7 @@ const HomeScreen = ({ navigation }) => {
                 },
                 body: JSON.stringify({ refreshToken: storedRefreshToken }),
             };
-            const response = await fetchWithTimeout('http://192.168.1.145:80/refresh-token', options);
+            const response = await fetchWithTimeout(baseURL + '/refresh-token', options);
 
             if (!response.ok) {
                 throw new Error('Failed to refresh token');

@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
+const baseURL = 'http://192.168.1.145:80'
 
 export default function Registration() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const navigation = useNavigation();
 
     const handleRegister = () => {
-        const url = 'http://192.168.1.145:80/register'; // Replace with your API endpoint
+        if(!username || !password) {
+            Alert.alert('Error', 'Please fill in all fields.');
+            return;
+        }
+        const url = baseURL + '/register'; // Replace with your API endpoint
         const data = {
             username: username,
             password: password,
@@ -23,9 +31,14 @@ export default function Registration() {
             .then((response) => response.json())
             .then((json) => {
                 if (json.success) {
-                    Alert.alert('Success', 'Account registered successfully!');
+                    Alert.alert('Success', 'Account registered successfully!', [
+                        {
+                            text: 'OK',
+                            onPress: () => navigation.navigate('Home'), 
+                        },
+                    ]);
                 } else {
-                    Alert.alert('Error', 'Registration failed. Please try again.');
+                    Alert.alert('Error', json.message);
                 }
             })
             .catch((error) => {
