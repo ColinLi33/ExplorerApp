@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const baseURL = 'http://192.168.1.145:80'
 
@@ -34,12 +35,15 @@ export default function Registration() {
             body: JSON.stringify(data),
         })
             .then((response) => response.json())
-            .then((json) => {
+            .then(async (json) => {
                 if (json.success) {
+                    const userId = json.userId;
+                    await AsyncStorage.setItem('accessToken', json.accessToken);
+                    await AsyncStorage.setItem('refreshToken', json.refreshToken);
                     Alert.alert('Success', 'Account registered successfully!', [
                         {
                             text: 'OK',
-                            onPress: () => navigation.navigate('Explorer'), 
+                            onPress: () => navigation.navigate('Explorer', { userId, username }), 
                         },
                     ]);
                 } else {

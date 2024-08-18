@@ -30,7 +30,7 @@ const fetchWithTimeout = async (url, options, timeout = 3000) => { //5 second ti
     });
 };
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
@@ -65,8 +65,20 @@ const HomeScreen = ({ navigation }) => {
             setAccessToken(storedAccessToken);
             setRefreshToken(storedRefreshToken);
         };
+
+        const getUserIdFromParams = () => {
+            const userId = route.params?.userId;
+            const username = route.params?.username;
+            if (userId) {
+                setUserId(userId);
+            }
+            if (username) {
+                setUsername(username);
+            }
+        };
         loadTokens();
-    }, []);
+        getUserIdFromParams();
+    }, [route.params]);
 
     const handleSliderChange = (value) => {
         let interval;
