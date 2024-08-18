@@ -39,7 +39,7 @@ export default function Registration() {
                     Alert.alert('Success', 'Account registered successfully!', [
                         {
                             text: 'OK',
-                            onPress: () => navigation.navigate('Home'), 
+                            onPress: () => navigation.navigate('Explorer'), 
                         },
                     ]);
                 } else {

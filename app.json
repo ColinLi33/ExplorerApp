@@ -1,41 +1,41 @@
 {
     "expo": {
-      "name": "explorerapp",
-      "slug": "explorerapp",
-      "version": "1.0.0",
-      "orientation": "portrait",
-      "icon": "./assets/icon.png",
-      "userInterfaceStyle": "light",
-      "splash": {
-        "image": "./assets/splash.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
-      },
-      "ios": {
-        "supportsTablet": true,
-        "infoPlist": {
-          "UIBackgroundModes": [
-            "location",
-            "fetch"
-          ],
-          "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location.",
-          "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
-          "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
-        }
-      },
-      "android": {
-        "adaptiveIcon": {
-          "foregroundImage": "./assets/adaptive-icon.png",
-          "backgroundColor": "#ffffff"
+        "name": "explorerapp",
+        "slug": "explorerapp",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
         },
-        "permissions": [
-          "ACCESS_COARSE_LOCATION",
-          "ACCESS_FINE_LOCATION",
-          "ACCESS_BACKGROUND_LOCATION"
-        ]
-      },
-      "web": {
-        "favicon": "./assets/favicon.png"
-      }
+        "ios": {
+            "supportsTablet": true,
+            "infoPlist": {
+                "UIBackgroundModes": [
+                    "location",
+                    "fetch"
+                ],
+                "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location.",
+                "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
+                "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
+            }
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#ffffff"
+            },
+            "permissions": [
+                "ACCESS_COARSE_LOCATION",
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_BACKGROUND_LOCATION"
+            ]
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        }
     }
-  }
+}

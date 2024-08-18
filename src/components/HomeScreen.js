@@ -17,7 +17,7 @@ const fetchWithTimeout = async (url, options, timeout = 3000) => { //5 second ti
             controller.abort();
             reject(new Error('Request timeout'));
         }, timeout);
-        
+
         fetch(url, options)
             .then((response) => {
                 clearTimeout(timeoutId);
@@ -36,73 +36,70 @@ const HomeScreen = ({ navigation }) => {
     const [userId, setUserId] = useState(null);
     const [location, setLocation] = useState(null); //current location
     const [errorMsg, setErrorMsg] = useState(null); //error message for location
-    const [accessToken, setAccessToken] = useState(null); 
+    const [accessToken, setAccessToken] = useState(null);
     const [refreshToken, setRefreshToken] = useState(null); //used to refresh access token
     const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
-    const [locationQueue, setLocationQueue] = useState([]); //queue of locations to send
-    const [queueLength, setQueueLength] = useState(0); //length of request queue
     const [updateInterval, setUpdateInterval] = useState(5000); //tied to slider
-    
-    useEffect(() => {
-        const loadTokensAndQueue = async () => {
-            const storedAccessToken = await AsyncStorage.getItem('accessToken');
-            const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
-            const storedQueue = await AsyncStorage.getItem('locationQueue');
-
-            setAccessToken(storedAccessToken);
-            setRefreshToken(storedRefreshToken);
-            setLocationQueue(storedQueue ? JSON.parse(storedQueue) : []);
-            setQueueLength(storedQueue ? JSON.parse(storedQueue).length : 0);
-        };
-        loadTokensAndQueue();
-    }, []);
+    const [savedLocationsCount, setSavedLocationsCount] = useState(0);
 
     useEffect(() => {
         if (userId && updateInterval) {
             const intervalId = setInterval(() => {
-                console.log("Fetching location")
+                console.log("Fetching location");
                 getLocation();
+                sendSavedLocationData(); // Send saved location data
             }, updateInterval); //every 5 seconds send location
 
             return () => {
                 clearInterval(intervalId);
-                console.log("interval cleared")
+                console.log("interval cleared");
             };
         }
     }, [userId, updateInterval]);
 
+    useEffect(() => {
+        const loadTokens = async () => {
+            const storedAccessToken = await AsyncStorage.getItem('accessToken');
+            const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
+
+            setAccessToken(storedAccessToken);
+            setRefreshToken(storedRefreshToken);
+        };
+        loadTokens();
+    }, []);
+
     const handleSliderChange = (value) => {
         let interval;
         switch (value) {
-        case 0:
-            interval = 1000; //1 second
-            break;
-        case 1:
-            interval = 5000; //5 seconds
-            break;
-        case 2:
-            interval = 10000; //10 seconds
-            break;
-        case 3:
-            interval = 30000; //30 seconds
-            break;
-        case 4:
-            interval = 60000; //1 minute
-            break;
-        case 5:
-            interval = 120000; //2 minutes
-            break;
-        case 6:
-            interval = 300000; //5 minutes
-            break;
-        case 7:
-            interval = 600000; //10 minutes
-            break;
-        case 8:
-            interval = 1800000; //30 minutes
-            break;
-        default:
-            interval = null; //OFF
+            case 0:
+                interval = 1000; //1 second
+                break;
+            case 1:
+                interval = 5000; //5 seconds
+                break;
+            case 2:
+                interval = 10000; //10 seconds
+                break;
+            case 3:
+                interval = 30000; //30 seconds
+                break;
+            case 4:
+                interval = 60000; //1 minute
+                break;
+            case 5:
+                interval = 120000; //2 minutes
+                break;
+            case 6:
+                interval = 300000; //5 minutes
+                break;
+            case 7:
+                interval = 600000; //10 minutes
+                break;
+            case 8:
+                interval = 1800000; //30 minutes
+                break;
+            default:
+                interval = null; //OFF
         }
         setUpdateInterval(interval);
     };
@@ -151,33 +148,41 @@ const HomeScreen = ({ navigation }) => {
         if (!token) return true;
         const decodedToken = jwtDecode(token);
         const currentTime = Date.now() / 1000;
-        return decodedToken.exp < currentTime; 
+        return decodedToken.exp < currentTime;
     };
 
     const getLocation = async () => {
-        let { status } = await Location.requestBackgroundPermissionsAsync();
+        let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
+            console.log('Permission to access location was denied');
             setErrorMsg('Permission to access location was denied');
             return;
         }
-    
+        let { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        if (backgroundStatus !== 'granted') {
+            //ask for permissions
+            console.log('Permission to access location was denied');
+            setErrorMsg('Permission to access location was denied');
+            return;
+        }
+
         let currentLocation = await Location.getCurrentPositionAsync({});
         setLocation(currentLocation);
-    
+
         let token = accessToken;
-        
-        if (isTokenExpired(token)) { 
+
+        if (isTokenExpired(token)) {
             console.log('Token expired');
-            token = await refreshAuthToken(); 
+            token = await refreshAuthToken();
             if (!token) {
                 Alert.alert('Error', 'Unable to refresh token. Please log in again.');
                 return;
             }
         }
-        sendLocationData({username, location: currentLocation}, token);
+        const success = await sendLocationDataWithRetry({ username, location: currentLocation }, token);
     };
 
-    const sendLocationData = async (data, token) => {
+    const sendLocationDataWithRetry = async (data, token) => {
         try {
             const options = {
                 method: 'POST',
@@ -193,66 +198,58 @@ const HomeScreen = ({ navigation }) => {
                 throw new Error('Failed to update location');
             }
 
-            if (queueLength > 0) { //if anything in the queue process it
-                console.log("Clearing queue")
-                await processQueue(token);
-            }
-
             const now = new Date();
             setLastUpdated(now);
 
             return response.json();
         } catch (error) {
-            enqueueLocation(data);
             console.error('Location update error:', error);
+            await saveLocationDataToStorage(data.location);
+            return false;
         }
     };
 
-    const enqueueLocation = async (locationData) => {
-        setLocationQueue((prevQueue) => {
-            const updatedQueue = [...prevQueue, locationData];
-            AsyncStorage.setItem('locationQueue', JSON.stringify(updatedQueue));
-            return updatedQueue;
-        });
-        setQueueLength((prevLength) => prevLength + 1);
+    const saveLocationDataToStorage = async (data) => {
+        try {
+            const existingData = await AsyncStorage.getItem('locationData');
+            const locationDataArray = existingData ? JSON.parse(existingData) : [];
+            locationDataArray.push(data);
+            console.log("queued location")
+            await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+            setSavedLocationsCount(locationDataArray.length);
+        } catch (error) {
+            console.error('Error saving location data:', error);
+        }
     };
 
-    const processQueue = async (token) => {
-        setLocationQueue((prevQueue) => {
-            const queue = [...prevQueue];
-    
-            const processItem = async () => {
-                if (queue.length === 0) {
-                    return;
-                }
-    
-                const item = queue.shift();
-                try {
+    const sendSavedLocationData = async () => {
+        try {
+            const savedData = await AsyncStorage.getItem('locationData');
+            if (savedData) {
+                const locationDataArray = JSON.parse(savedData);
+                if (locationDataArray.length > 0) {
                     const options = {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
+                            'Authorization': `Bearer ${accessToken}`,
                         },
-                        body: JSON.stringify(item),
+                        body: JSON.stringify({username: username, location: locationDataArray}),
                     };
                     const response = await fetchWithTimeout(baseURL + '/update', options);
     
-                    if (!response.ok) {
-                        throw new Error('Failed to update location');
+                    if (response.ok) {
+                        await AsyncStorage.removeItem('locationData');
+                        setSavedLocationsCount(0);
+                        console.log("Cleared Queue")
+                    } else {
+                        console.error('Failed to send batch location data');
                     }
-    
-                    AsyncStorage.setItem('locationQueue', JSON.stringify(queue));
-                    setQueueLength(queue.length);
-                    await processItem();
-                } catch (error) {
-                    console.error('Error processing queue item:', error);
                 }
-            };
-    
-            processItem();
-            return queue;
-        });
+            }
+        } catch (error) {
+            console.error('Error sending saved location data:', error);
+        }
     };
 
     const refreshAuthToken = async () => {
@@ -286,6 +283,7 @@ const HomeScreen = ({ navigation }) => {
             return null;
         }
     };
+
     return (
         <View>
             {!userId ? ( //this is the login screen
@@ -302,14 +300,14 @@ const HomeScreen = ({ navigation }) => {
                         secureTextEntry
                     />
                     <Button title="Login" onPress={login} />
-                    <View style={{ marginTop: 20 }}> 
+                    <View style={{ marginTop: 20 }}>
                         <Button title="Register" onPress={() => navigation.navigate('Registration')} />
                     </View>
                 </View>
             ) : ( //this is the home screen
                 <View>
                     {lastUpdated && <Text>Location Last Sent: {lastUpdated.toLocaleTimeString()}</Text>}
-                    <Text>Queued Locations: {queueLength}</Text>
+                    <Text>Queued Locations: {savedLocationsCount}</Text>
                     <Text>Send Interval:</Text>
                     <Slider
                         minimumValue={0}
@@ -327,4 +325,5 @@ const HomeScreen = ({ navigation }) => {
         </View>
     );
 };
+
 export default HomeScreen;
