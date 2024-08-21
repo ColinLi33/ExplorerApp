@@ -9,8 +9,7 @@ import * as TaskManager from 'expo-task-manager';
 const baseURL = 'http://192.168.1.145:80'; //replace later
 const LOCATION_TRACKING = 'location-tracking';
 
-const fetchWithTimeout = async (url, options, timeout = 3000) => {
-    //5 second timer on request
+const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
     const controller = new AbortController();
     const { signal } = controller;
     options = { ...options, signal };
@@ -38,7 +37,6 @@ const HomeScreen = ({ route, navigation }) => {
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
     const [location, setLocation] = useState(null); //current location
-    const [errorMsg, setErrorMsg] = useState(null); //error message for location
     const [accessToken, setAccessToken] = useState(null);
     const [refreshToken, setRefreshToken] = useState(null); //used to refresh access token
     const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
@@ -105,20 +103,6 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     useEffect(() => {
-        const config = async () => {
-            let resf = await Location.requestForegroundPermissionsAsync();
-            let resb = await Location.requestBackgroundPermissionsAsync();
-            if (resf.status != 'granted' && resb.status !== 'granted') {
-                console.log('Permission to access location was denied');
-            } else {
-                console.log('Permission to access location granted');
-            }
-        };
-
-        config();
-    }, []);
-
-    useEffect(() => {
         if (userId) {
             startLocationTracking();
 
@@ -129,7 +113,7 @@ const HomeScreen = ({ route, navigation }) => {
         }
     }, [userId]);
 
-    useEffect(() => { //loads tokens when app is loaded to check if user is logged in
+    useEffect(() => { //this runs when the app is first opened
         const loadTokens = async () => {
             const storedAccessToken = await AsyncStorage.getItem('accessToken');
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
@@ -138,19 +122,32 @@ const HomeScreen = ({ route, navigation }) => {
                 setAccessToken(storedAccessToken);
                 setRefreshToken(storedRefreshToken);
                 const decodedToken = jwtDecode(storedAccessToken);
-                setUserId(decodedToken.userId);
                 setUsername(decodedToken.username);
+                setUserId(decodedToken.userId);
+                console.log('signing in as', decodedToken.username);
             } else if(storedRefreshToken){
                 const newAccessToken = await refreshAuthToken();
                 if(newAccessToken) {
                     setAccessToken(newAccessToken);
                     const decodedToken = jwtDecode(newAccessToken);
-                    setUserId(decodedToken.userId);
                     setUsername(decodedToken.username);
+                    setUserId(decodedToken.userId);
+                    console.log('Signing in as', decodedToken.username);
                 }
             }
         };
+        const config = async () => {
+            let resf = await Location.requestForegroundPermissionsAsync();
+            let resb = await Location.requestBackgroundPermissionsAsync();
+            if (resf.status != 'granted' && resb.status !== 'granted') {
+                console.log('Permission to access location was denied');
+            } else {
+                console.log('Permission to access location granted');
+            }
+        };
+
         loadTokens();
+        config();
     }, []);
 
     const handleSliderChange = (value) => {
@@ -219,9 +216,9 @@ const HomeScreen = ({ route, navigation }) => {
             }
 
             const data = await response.json();
-            setUserId(data.userId);
             setAccessToken(data.accessToken);
             setRefreshToken(data.refreshToken);
+            setUserId(data.userId);
 
             await AsyncStorage.setItem('accessToken', data.accessToken);
             await AsyncStorage.setItem('refreshToken', data.refreshToken);
@@ -229,6 +226,36 @@ const HomeScreen = ({ route, navigation }) => {
             Alert.alert('Login successful');
         } catch (error) {
             console.error('Login error:', error);
+            Alert.alert('Error', error.message);
+        }
+    };
+
+    const logout = async () => { //log out handler
+        try {
+            const options = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            };
+            const response = await fetchWithTimeout(baseURL + '/logout', options);
+
+            if (!response.ok) {
+                throw new Error('Log out failed');
+            }
+            setAccessToken(null);
+            setRefreshToken(null);
+            setUsername('');
+            setPassword('');
+            
+            await AsyncStorage.removeItem('accessToken');
+            await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('locationData');
+            setUserId(null);
+
+            Alert.alert('Log out successful');
+        } catch (error) {
+            console.error('Log out error:', error);
             Alert.alert('Error', error.message);
         }
     };
@@ -357,6 +384,7 @@ const HomeScreen = ({ route, navigation }) => {
             ) : (
                 //this is the home screen
                 <View>
+                    <Text>Signed in as: {username}</Text>
                     {lastUpdated && <Text>Location Last Sent: {lastUpdated.toLocaleTimeString()}</Text>}
                     <Text>Queued Locations: {savedLocationsCount}</Text>
                     <Text>Send Interval:</Text>
@@ -391,6 +419,7 @@ const HomeScreen = ({ route, navigation }) => {
                         thumbTintColor="#000000"
                     />
                     <Text>{getIntervalText()}</Text>
+                    <Button title="Log Out" onPress={logout} />
                 </View>
             )}
         </View>
