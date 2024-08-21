@@ -36,13 +36,9 @@ const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
-    const [location, setLocation] = useState(null); //current location
-    const [accessToken, setAccessToken] = useState(null);
-    const [refreshToken, setRefreshToken] = useState(null); //used to refresh access token
     const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
     const [updateInterval, setUpdateInterval] = useState(5000); //tied to slider
     const [savedLocationsCount, setSavedLocationsCount] = useState(0);
-    const [locationStarted, setLocationStarted] = useState(false);
 
     const startLocationTracking = async () => { //background task for location tracking
         try {
@@ -58,8 +54,7 @@ const HomeScreen = ({ route, navigation }) => {
                     } else {
                         data = data[0]; //make it not a list
                     }
-                    setLocation(data);
-                    let token = accessToken;
+                    let token = await AsyncStorage.getItem('accessToken');
 
                     if (isTokenExpired(token)) {
                         console.log('Token expired');
@@ -69,7 +64,7 @@ const HomeScreen = ({ route, navigation }) => {
                             return;
                         }
                     }
-                    const success = await sendLocationDataWithRetry({ username, location: data }, token);
+                    await sendLocationDataWithRetry({ username, location: data }, token);
                     sendSavedLocationData();
                 } else {
                     console.log('No data or user id');
@@ -82,36 +77,36 @@ const HomeScreen = ({ route, navigation }) => {
                         timeInterval: updateInterval,
                         distanceInterval: 0,
                     });
-                    setLocationStarted(true);
+                    console.log('Location tracking started with interval', updateInterval);
                 }
             });
         } catch (error) {
             console.error('Failed to start location tracking:', error);
         }
-
-        const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING);
-        setLocationStarted(hasStarted);
     };
 
     const stopLocationTracking = () => {
-        setLocationStarted(false);
         TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async(tracking) => {
             if (tracking) {
                 await Location.stopLocationUpdatesAsync(LOCATION_TRACKING);
             }
         });
+        console.log('Location tracking stopped');
     };
 
     useEffect(() => {
-        if (userId) {
-            startLocationTracking();
-
-            return () => {
-                stopLocationTracking();
-                console.log('interval cleared');
+        if (userId && updateInterval !== null) {
+            const restartLocationTracking = async() => {
+                console.log("Restarting location tracking");
+                await Promise.all([ //avoid race where startTracking finishes before stopTracking, turning it off
+                    stopLocationTracking(),
+                    new Promise((resolve) => setTimeout(resolve, 500)),
+                ]);
+                await startLocationTracking();
             };
+            restartLocationTracking();
         }
-    }, [userId]);
+    }, [userId, updateInterval]);
 
     useEffect(() => { //this runs when the app is first opened
         const loadTokens = async () => {
@@ -119,8 +114,6 @@ const HomeScreen = ({ route, navigation }) => {
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
 
             if(storedAccessToken && !isTokenExpired(storedAccessToken)) {
-                setAccessToken(storedAccessToken);
-                setRefreshToken(storedRefreshToken);
                 const decodedToken = jwtDecode(storedAccessToken);
                 setUsername(decodedToken.username);
                 setUserId(decodedToken.userId);
@@ -128,7 +121,6 @@ const HomeScreen = ({ route, navigation }) => {
             } else if(storedRefreshToken){
                 const newAccessToken = await refreshAuthToken();
                 if(newAccessToken) {
-                    setAccessToken(newAccessToken);
                     const decodedToken = jwtDecode(newAccessToken);
                     setUsername(decodedToken.username);
                     setUserId(decodedToken.userId);
@@ -184,10 +176,6 @@ const HomeScreen = ({ route, navigation }) => {
                 interval = null; //OFF
         }
         setUpdateInterval(interval);
-        if(locationStarted) { //refresh to update the interval
-            stopLocationTracking();
-        }
-        startLocationTracking();
     };
 
     const getIntervalText = () => { //displays text for slider
@@ -216,13 +204,11 @@ const HomeScreen = ({ route, navigation }) => {
             }
 
             const data = await response.json();
-            setAccessToken(data.accessToken);
-            setRefreshToken(data.refreshToken);
-            setUserId(data.userId);
-
+            
             await AsyncStorage.setItem('accessToken', data.accessToken);
             await AsyncStorage.setItem('refreshToken', data.refreshToken);
-
+            
+            setUserId(data.userId);
             Alert.alert('Login successful');
         } catch (error) {
             console.error('Login error:', error);
@@ -243,14 +229,13 @@ const HomeScreen = ({ route, navigation }) => {
             if (!response.ok) {
                 throw new Error('Log out failed');
             }
-            setAccessToken(null);
-            setRefreshToken(null);
             setUsername('');
             setPassword('');
             
             await AsyncStorage.removeItem('accessToken');
             await AsyncStorage.removeItem('refreshToken');
             await AsyncStorage.removeItem('locationData');
+            await stopLocationTracking();
             setUserId(null);
 
             Alert.alert('Log out successful');
@@ -312,12 +297,13 @@ const HomeScreen = ({ route, navigation }) => {
             const savedData = await AsyncStorage.getItem('locationData');
             if (savedData) {
                 const locationDataArray = JSON.parse(savedData);
+                const token = await AsyncStorage.getItem('accessToken');
                 if (locationDataArray.length > 0) {
                     const options = {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${accessToken}`,
+                            Authorization: `Bearer ${token}`,
                         },
                         body: JSON.stringify({ username: username, location: locationDataArray }),
                     };
@@ -357,8 +343,6 @@ const HomeScreen = ({ route, navigation }) => {
             const newAccessToken = data.accessToken;
             const newRefreshToken = data.refreshToken;
 
-            setAccessToken(newAccessToken);
-            setRefreshToken(newRefreshToken);
             await AsyncStorage.setItem('accessToken', newAccessToken);
             await AsyncStorage.setItem('refreshToken', newRefreshToken);
 
