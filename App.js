@@ -7,14 +7,14 @@ import Registration from './src/components/Registration';
 const Stack = createStackNavigator();
 
 const App = () => {
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Explorer" component={HomeScreen} />
-        <Stack.Screen name="Registration" component={Registration} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+    return (
+        <NavigationContainer>
+            <Stack.Navigator initialRouteName="Home">
+                <Stack.Screen name="Explorer" component={HomeScreen} />
+                <Stack.Screen name="Registration" component={Registration} />
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
 };
 
 export default App;

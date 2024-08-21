@@ -1,60 +1,60 @@
 {
-  "expo": {
-    "name": "explorerapp",
-    "slug": "explorerapp",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/logo.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"],
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location.",
-        "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
-        "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
-      },
-      "bundleIdentifier": "com.colinli3.explorerapp"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#ffffff"
-      },
-      "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
-        "FOREGROUND_SERVICE_LOCATION",
-        "FOREGROUND_SERVICE",
-        "com.google.android.gms.permission.ACTIVITY_RECOGNITION"
-      ],
-      "package": "com.colinli3.explorerapp"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "37671018-88a3-4097-a497-4284bd60a102"
-      }
-    },
-    "plugins": [
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
-          "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to always use your location.",
-          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
-          "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
-        }
-      ]
-    ]
-  }
+    "expo": {
+        "name": "explorerapp",
+        "slug": "explorerapp",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/logo.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "infoPlist": {
+                "UIBackgroundModes": ["location", "fetch", "remote-notification"],
+                "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location.",
+                "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
+                "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
+            },
+            "bundleIdentifier": "com.colinli3.explorerapp"
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/logo.png",
+                "backgroundColor": "#ffffff"
+            },
+            "permissions": [
+                "ACCESS_COARSE_LOCATION",
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_BACKGROUND_LOCATION",
+                "FOREGROUND_SERVICE_LOCATION",
+                "FOREGROUND_SERVICE",
+                "com.google.android.gms.permission.ACTIVITY_RECOGNITION"
+            ],
+            "package": "com.colinli3.explorerapp"
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "extra": {
+            "eas": {
+                "projectId": "37671018-88a3-4097-a497-4284bd60a102"
+            }
+        },
+        "plugins": [
+            [
+                "expo-location",
+                {
+                    "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+                    "locationAlwaysPermission": "Allow $(PRODUCT_NAME) to always use your location.",
+                    "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+                    "isAndroidBackgroundLocationEnabled": true,
+                    "isAndroidForegroundServiceEnabled": true
+                }
+            ]
+        ]
+    }
 }
