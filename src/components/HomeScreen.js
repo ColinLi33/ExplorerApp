@@ -60,7 +60,6 @@ const HomeScreen = ({ route, navigation }) => {
                     } else {
                         data = data[0]; //make it not a list
                     }
-                    console.log('SENDING DATA', data);
                     setLocation(data);
                     let token = accessToken;
 
@@ -94,7 +93,6 @@ const HomeScreen = ({ route, navigation }) => {
 
         const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING);
         setLocationStarted(hasStarted);
-        console.log('tracking started?', hasStarted);
     };
 
     const stopLocationTracking = () => {
@@ -122,7 +120,6 @@ const HomeScreen = ({ route, navigation }) => {
 
     useEffect(() => {
         if (userId) {
-            console.log('Starting tracking');
             startLocationTracking();
 
             return () => {
@@ -190,7 +187,6 @@ const HomeScreen = ({ route, navigation }) => {
                 interval = null; //OFF
         }
         setUpdateInterval(interval);
-        console.log(locationStarted)
         if(locationStarted) { //refresh to update the interval
             stopLocationTracking();
         }
@@ -289,7 +285,6 @@ const HomeScreen = ({ route, navigation }) => {
             const savedData = await AsyncStorage.getItem('locationData');
             if (savedData) {
                 const locationDataArray = JSON.parse(savedData);
-                console.log(locationDataArray);
                 if (locationDataArray.length > 0) {
                     const options = {
                         method: 'POST',
