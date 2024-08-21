@@ -37,13 +37,12 @@ export default function Registration() {
             .then((response) => response.json())
             .then(async (json) => {
                 if (json.success) {
-                    const userId = json.userId;
                     await AsyncStorage.setItem('accessToken', json.accessToken);
                     await AsyncStorage.setItem('refreshToken', json.refreshToken);
                     Alert.alert('Success', 'Account registered successfully!', [
                         {
                             text: 'OK',
-                            onPress: () => navigation.navigate('Explorer', { userId, username }), 
+                            onPress: () => navigation.navigate('Explorer'), 
                         },
                     ]);
                 } else {
