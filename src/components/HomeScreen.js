@@ -6,7 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 import Slider from '@react-native-community/slider';
 import * as TaskManager from 'expo-task-manager';
 
-const baseURL = 'http://192.168.1.145:80'; //replace later
+const baseURL = 'http://colinli.me'; //replace later
 const LOCATION_TRACKING = 'location-tracking';
 
 const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
@@ -39,6 +39,7 @@ const HomeScreen = ({ route, navigation }) => {
     const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
     const [updateInterval, setUpdateInterval] = useState(5000); //tied to slider
     const [savedLocationsCount, setSavedLocationsCount] = useState(0);
+    const [isSliding, setIsSliding] = useState(false); //for slider
 
     const startLocationTracking = async () => { //background task for location tracking
         try {
@@ -95,7 +96,7 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     useEffect(() => {
-        if (userId && updateInterval !== null) {
+        if (userId && updateInterval !== null && !isSliding){
             const restartLocationTracking = async() => {
                 console.log("Restarting location tracking");
                 await Promise.all([ //avoid race where startTracking finishes before stopTracking, turning it off
@@ -105,8 +106,10 @@ const HomeScreen = ({ route, navigation }) => {
                 await startLocationTracking();
             };
             restartLocationTracking();
+        } else if(userId != null && updateInterval === null && !isSliding) {
+            stopLocationTracking();
         }
-    }, [userId, updateInterval]);
+    }, [userId, updateInterval, isSliding]);
 
     useEffect(() => { //this runs when the app is first opened
         const loadTokens = async () => {
@@ -235,7 +238,7 @@ const HomeScreen = ({ route, navigation }) => {
             await AsyncStorage.removeItem('accessToken');
             await AsyncStorage.removeItem('refreshToken');
             await AsyncStorage.removeItem('locationData');
-            await stopLocationTracking();
+            stopLocationTracking();
             setUserId(null);
 
             Alert.alert('Log out successful');
@@ -398,6 +401,8 @@ const HomeScreen = ({ route, navigation }) => {
                             : 9
                         }
                         onValueChange={handleSliderChange}
+                        onSlidingStart={() => setIsSliding(true)}
+                        onSlidingComplete={() => setIsSliding(false)}
                         minimumTrackTintColor="#000000"
                         maximumTrackTintColor="#000000"
                         thumbTintColor="#000000"
