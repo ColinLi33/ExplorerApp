@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const baseURL = 'http://colinli.me'
+const baseURL = 'https://colinli.me'
 
 export default function Registration() {
     const [username, setUsername] = useState('');

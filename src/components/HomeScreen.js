@@ -6,7 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 import Slider from '@react-native-community/slider';
 import * as TaskManager from 'expo-task-manager';
 
-const baseURL = 'http://colinli.me'; //replace later
+const baseURL = 'https://colinli.me'; //replace later
 const LOCATION_TRACKING = 'location-tracking';
 
 const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
@@ -84,6 +84,7 @@ const HomeScreen = ({ route, navigation }) => {
                             notificationColor: "#ff0000",
                         },
                         pausesUpdatesAutomatically: false,
+                        killServiceOnDestroy: false,
                     });
                     console.log('Location tracking started with interval', updateInterval);
                 }
