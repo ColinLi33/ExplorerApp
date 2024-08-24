@@ -19,7 +19,7 @@
                 "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
                 "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
             },
-            "bundleIdentifier": "com.colinli3.explorerapp"
+            "bundleIdentifier": "com.colinli3.Explorer"
         },
         "android": {
             "adaptiveIcon": {
@@ -34,7 +34,7 @@
                 "FOREGROUND_SERVICE",
                 "com.google.android.gms.permission.ACTIVITY_RECOGNITION"
             ],
-            "package": "com.colinli3.explorerapp"
+            "package": "com.colinli3.Explorer"
         },
         "web": {
             "favicon": "./assets/favicon.png"

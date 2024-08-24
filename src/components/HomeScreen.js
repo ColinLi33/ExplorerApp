@@ -77,6 +77,12 @@ const HomeScreen = ({ route, navigation }) => {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
                         distanceInterval: 0,
+                        showsBackgroundLocationIndicator: true,
+                        foregroundService: {
+                            notificationTitle: "Using your location",
+                            notificationBody: "Tracking your location to provide the best experience possible.",
+                            notificationColor: "#ff0000",
+                        },
                     });
                     console.log('Location tracking started with interval', updateInterval);
                 }
