@@ -2,6 +2,14 @@
     "cli": {
         "version": ">= 0.34.0"
     },
+    "build": {
+        "production": {
+            "android": {
+                "buildType": "apk",
+                "releaseChannel": "default"
+            }
+        }
+    },
     "submit": {
         "production": {
             "android": {

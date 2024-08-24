@@ -79,10 +79,11 @@ const HomeScreen = ({ route, navigation }) => {
                         distanceInterval: 0,
                         showsBackgroundLocationIndicator: true,
                         foregroundService: {
-                            notificationTitle: "Using your location",
+                            notificationTitle: "Explorer",
                             notificationBody: "Tracking your location to provide the best experience possible.",
                             notificationColor: "#ff0000",
                         },
+                        pausesUpdatesAutomatically: false,
                     });
                     console.log('Location tracking started with interval', updateInterval);
                 }
