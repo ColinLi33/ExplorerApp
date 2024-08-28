@@ -5,7 +5,7 @@
     "build": {
         "production": {
             "android": {
-                "buildType": "apk",
+                "buildType": "aab",
                 "releaseChannel": "default"
             }
         }

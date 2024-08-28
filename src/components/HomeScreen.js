@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert } from 'react-native';
+import { View, Text, TextInput, Button, Alert, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -416,7 +416,24 @@ const HomeScreen = ({ route, navigation }) => {
                         thumbTintColor="#000000"
                     />
                     <Text>{getIntervalText()}</Text>
-                    <Button title="Log Out" onPress={logout} />
+                    <View style={{ marginTop: 20 }}>
+                        <Button
+                            title="View Your Map"
+                            onPress={async() => {
+                                try{
+                                    const accessToken = await AsyncStorage.getItem('accessToken');
+                                    const mapUrl = `https://ColinLi.me/map/${username}?token=${accessToken}`;
+                                    Linking.openURL(mapUrl);
+                                } catch (error) {
+                                    console.error('Error opening map:', error);
+                                    Alert.alert('Error', 'Failed to open map');
+                                }
+                            }}
+                        />
+                    </View>
+                    <View style={{ marginTop: 20 }}>
+                        <Button title="Log Out" onPress={logout} />
+                    </View>
                 </View>
             )}
         </View>
