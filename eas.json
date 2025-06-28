@@ -5,8 +5,9 @@
     "build": {
         "production": {
             "android": {
-                "buildType": "aab",
-                "releaseChannel": "default"
+                "buildType": "app-bundle",
+                "releaseChannel": "default",
+                "autoIncrement": true
             }
         }
     },

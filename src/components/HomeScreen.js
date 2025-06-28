@@ -42,6 +42,18 @@ const HomeScreen = ({ route, navigation }) => {
     const [isSliding, setIsSliding] = useState(false); //for slider
 
     const startLocationTracking = async () => { //background task for location tracking
+        console.log('starting tracking')
+        let { status: fg } = await Location.requestForegroundPermissionsAsync();
+        if (fg !== 'granted') {
+            console.log('Foreground location permission denied');
+            return;
+        }
+
+        let { status: bg } = await Location.requestBackgroundPermissionsAsync();
+        if (bg !== 'granted') {
+            console.log('Background location permission denied');
+            return;
+        }
         try {
             TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
                 if (error) {
@@ -73,6 +85,7 @@ const HomeScreen = ({ route, navigation }) => {
             });
             TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async (tracking) => {
                 if (!tracking) {
+                    console.log("STARTING")
                     await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
@@ -104,6 +117,7 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     useEffect(() => {
+        console.log(userId, updateInterval, isSliding)
         if (userId && updateInterval !== null && !isSliding){
             const restartLocationTracking = async() => {
                 console.log("Restarting location tracking");
