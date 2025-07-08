@@ -288,7 +288,6 @@ const HomeScreen = ({ route, navigation }) => {
                 body: JSON.stringify(data),
             };
             const response = await fetchWithTimeout(baseURL + '/update', options);
-
             if (!response.ok) {
                 throw new Error('Failed to update location');
             }
