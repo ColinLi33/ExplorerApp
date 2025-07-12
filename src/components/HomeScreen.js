@@ -8,7 +8,126 @@ import * as TaskManager from 'expo-task-manager';
 
 const baseURL = 'https://colinli.me'; //replace later
 const LOCATION_TRACKING = 'location-tracking';
-
+// Helper functions in module scope
+async function isTokenExpired(token) {
+    if (!token) return true;
+    const decoded = jwtDecode(token);
+    return decoded.exp < Date.now() / 1000;
+  }
+  
+  async function refreshAuthToken() {
+    try {
+      const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
+      const response = await fetch(`${baseURL}/refresh-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: storedRefreshToken }),
+      });
+      if (!response.ok) throw new Error('Failed to refresh token');
+      const data = await response.json();
+      await AsyncStorage.setItem('accessToken', data.accessToken);
+      await AsyncStorage.setItem('refreshToken', data.refreshToken);
+      return data.accessToken;
+    } catch (e) {
+      console.log('Token refresh error:', e);
+      return null;
+    }
+  }
+  
+  async function saveLocationDataToStorage(data) {
+    try {
+      const existingData = await AsyncStorage.getItem('locationData');
+      const locationDataArray = existingData ? JSON.parse(existingData) : [];
+      locationDataArray.push(data);
+      console.log('queued location');
+      await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+    } catch (error) {
+      console.error('Error saving location data:', error);
+    }
+  }
+  
+  async function sendLocationDataWithRetry(data, token) {
+    try {
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      };
+      const response = await fetchWithTimeout(`${baseURL}/update`, options);
+      if (!response.ok) throw new Error('Failed to update location');
+      const now = new Date();
+      // update lastUpdated state via event if needed
+      return response.json();
+    } catch (error) {
+      console.error('Location update error:', error);
+      await saveLocationDataToStorage(data.location);
+      return false;
+    }
+  }
+  
+  async function sendSavedLocationData(username) {
+    try {
+      const savedData = await AsyncStorage.getItem('locationData');
+      if (savedData) {
+        const locationDataArray = JSON.parse(savedData);
+        const token = await AsyncStorage.getItem('accessToken');
+        if (locationDataArray.length > 0) {
+          const options = {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ username, location: locationDataArray }),
+          };
+          const response = await fetchWithTimeout(`${baseURL}/update`, options);
+          if (response.ok) {
+            await AsyncStorage.removeItem('locationData');
+            console.log('Cleared Queue');
+          } else {
+            console.error('Failed to send batch location data');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error sending saved location data:', error);
+    }
+  }
+  
+  // Define background task at module load
+  TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
+    if (error) {
+      console.log('LOCATION_TRACKING task ERROR:', error);
+      return;
+    }
+    const locations = data?.locations;
+    if (!locations || locations.length === 0) {
+      console.log('No locations received in background.');
+      return;
+    }
+    const latest = locations.length > 1 ? locations[locations.length - 1] : locations[0];
+    console.log('📍 Background location received:', latest);
+  
+    try {
+      let token = await AsyncStorage.getItem('accessToken');
+      if (await isTokenExpired(token)) {
+        token = await refreshAuthToken();
+        if (!token) {
+          console.log('Could not refresh token in background task');
+          return;
+        }
+      }
+      const decoded = jwtDecode(token);
+      const username = decoded.username;
+      await sendLocationDataWithRetry({ username, location: latest }, token);
+      await sendSavedLocationData(username);
+    } catch (e) {
+      console.log('Error in background task handler:', e);
+    }
+  });
 const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
     const controller = new AbortController();
     const { signal } = controller;
@@ -55,34 +174,8 @@ const HomeScreen = ({ route, navigation }) => {
             return;
         }
         try {
-            TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
-                if (error) {
-                    console.log('LOCATION_TRACKING task ERROR:', error);
-                    return;
-                }
-                if (data && userId) {
-                    data = data.locations;
-                    if(data.length > 1){
-                        data = data[data.length - 1]; //get the most recent location
-                    } else {
-                        data = data[0]; //make it not a list
-                    }
-                    let token = await AsyncStorage.getItem('accessToken');
 
-                    if (isTokenExpired(token)) {
-                        console.log('Token expired');
-                        token = await refreshAuthToken();
-                        if (!token) {
-                            Alert.alert('Error', 'Unable to refresh token. Please log in again.');
-                            return;
-                        }
-                    }
-                    await sendLocationDataWithRetry({ username, location: data }, token);
-                    sendSavedLocationData();
-                } else {
-                    console.log('No data or user id');
-                }
-            });
+            ;
             TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async (tracking) => {
                 if (!tracking) {
                     console.log("STARTING")
