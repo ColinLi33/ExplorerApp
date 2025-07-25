@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, Linking } from 'react-native';
+import { StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ImageBackground } from 'react-native'; // Import ImageBackground
+import { Image } from 'react-native'; // Import Image component
+
+
+import { View, Text, TextInput, Button, Alert,StyleSheet, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -471,79 +477,203 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     return (
-        <View>
-            {!userId ? (
-                //this is the login screen
-                <View>
-                    <TextInput placeholder="Username" value={username} onChangeText={setUsername} />
-                    <TextInput placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
-                    <Button title="Login" onPress={login} />
-                    <View style={{ marginTop: 20 }}>
-                        <Button title="Register" onPress={() => navigation.navigate('Registration')} />
-                    </View>
-                </View>
-            ) : (
-                //this is the home screen
-                <View>
-                    <Text>Signed in as: {username}</Text>
-                    {lastUpdated && <Text>Location Last Sent: {lastUpdated.toLocaleTimeString()}</Text>}
-                    <Text>Queued Locations: {savedLocationsCount}</Text>
-                    <Text>Send Interval:</Text>
-                    <Slider
-                        minimumValue={0}
-                        maximumValue={9}
-                        step={1}
-                        value={
-                            updateInterval === 1000
-                            ? 0
-                            : updateInterval === 5000
-                            ? 1
-                            : updateInterval === 10000
-                            ? 2
-                            : updateInterval === 30000
-                            ? 3
-                            : updateInterval === 60000
-                            ? 4
-                            : updateInterval === 120000
-                            ? 5
-                            : updateInterval === 300000
-                            ? 6
-                            : updateInterval === 600000
-                            ? 7
-                            : updateInterval === 1800000
-                            ? 8
-                            : 9
-                        }
-                        onValueChange={handleSliderChange}
-                        onSlidingStart={() => setIsSliding(true)}
-                        onSlidingComplete={() => setIsSliding(false)}
-                        minimumTrackTintColor="#000000"
-                        maximumTrackTintColor="#000000"
-                        thumbTintColor="#000000"
+        <ImageBackground
+                source={require('../../assets/map-background2.jpg')} // Path to your map image
+                style={styles.backgroundImage}
+        >
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+            
+            <View style={styles.container}>
+                <View style={styles.headerContainer}>
+                    <Text style={styles.header}>Explorer</Text>
+                    <Image
+                    source={require('../../assets/logo.png')} // Path to your logo image
+                    style={styles.logo} // Style for the logo
                     />
-                    <Text>{getIntervalText()}</Text>
-                    <View style={{ marginTop: 20 }}>
-                        <Button
-                            title="View Your Map"
-                            onPress={async() => {
-                                try{
-                                    const accessToken = await AsyncStorage.getItem('accessToken');
-                                    const mapUrl = `https://ColinLi.me/map/${username}?token=${accessToken}`;
-                                    Linking.openURL(mapUrl);
-                                } catch (error) {
-                                    console.error('Error opening map:', error);
-                                    Alert.alert('Error', 'Failed to open map');
-                                }
-                            }}
-                        />
-                    </View>
-                    <View style={{ marginTop: 20 }}>
-                        <Button title="Log Out" onPress={logout} />
-                    </View>
                 </View>
-            )}
-        </View>
+                {!userId ? (
+                    // Login Screen
+                    <View style={styles.loginContainer}>
+                        <TextInput
+                            style={[styles.fullWidthInput, { marginBottom: 10 }]} // Adjusted margin for Username
+                            placeholder="Username"
+                            value={username}
+                            onChangeText={setUsername}
+                        />
+                        <TextInput
+                            style={[styles.fullWidthInput, { marginBottom: 20 }]} // Adjusted margin for Password
+                            placeholder="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                        />
+                        <View style={styles.buttonBox}>
+                            <Button title="Login" onPress={login} color="#007BFF" />
+                        </View>
+                        <Text
+                            style={styles.registerText}
+                            onPress={() => navigation.navigate('Registration')}
+                        >
+                            Register
+                        </Text>
+                    </View>
+                ) : (
+                    // Home Screen
+                    <View style={styles.homeContainer}>
+                        <Text style={styles.header}>Welcome, {username}</Text>
+                        {lastUpdated && (
+                            <Text style={styles.infoText}>
+                                Location Last Sent: {lastUpdated.toLocaleTimeString()}
+                            </Text>
+                        )}
+                        <Text style={styles.infoText}>Queued Locations: {savedLocationsCount}</Text>
+                        <Text style={styles.infoText}>Send Interval:</Text>
+                        <Slider
+                            style={styles.slider}
+                            minimumValue={0}
+                            maximumValue={9}
+                            step={1}
+                            value={
+                                updateInterval === 1000
+                                    ? 0
+                                    : updateInterval === 5000
+                                    ? 1
+                                    : updateInterval === 10000
+                                    ? 2
+                                    : updateInterval === 30000
+                                    ? 3
+                                    : updateInterval === 60000
+                                    ? 4
+                                    : updateInterval === 120000
+                                    ? 5
+                                    : updateInterval === 300000
+                                    ? 6
+                                    : updateInterval === 600000
+                                    ? 7
+                                    : updateInterval === 1800000
+                                    ? 8
+                                    : 9
+                            }
+                            onValueChange={handleSliderChange}
+                            onSlidingStart={() => setIsSliding(true)}
+                            onSlidingComplete={() => setIsSliding(false)}
+                            minimumTrackTintColor="#007BFF"
+                            maximumTrackTintColor="#6C757D"
+                            thumbTintColor="#007BFF"
+                        />
+                        <Text style={styles.infoText}>{getIntervalText()}</Text>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title="View Your Map"
+                                onPress={async () => {
+                                    try {
+                                        const accessToken = await AsyncStorage.getItem('accessToken');
+                                        const mapUrl = `https://ColinLi.me/map/${username}?token=${accessToken}`;
+                                        Linking.openURL(mapUrl);
+                                    } catch (error) {
+                                        console.error('Error opening map:', error);
+                                        Alert.alert('Error', 'Failed to open map');
+                                    }
+                                }}
+                                color="#007BFF"
+                            />
+                        </View>
+                        <View style={styles.buttonContainer}>
+                            <Button title="Log Out" onPress={logout} color="#DC3545" />
+                        </View>
+                    </View>
+                )}
+            </View>
+        
+        </SafeAreaView>
+        </ImageBackground>
     );
-};
 
+
+    }
+
+    
+    const styles = StyleSheet.create({
+        safeArea: {
+            flex: 1,
+            // backgroundColor: '#FFFFFF',
+        },
+        container: {
+            flex: 1,
+            padding: 20,
+            // backgroundColor: '#FFFFFF',
+        },
+
+        backgroundImage: {
+            flex: 1,
+            resizeMode: 'cover', // Ensures the image covers the entire screen
+        },
+
+        headerContainer: {
+            alignItems: 'center',
+            marginTop: 10, // Adjust spacing at the top
+        },
+        header: {
+            fontSize: 24,
+            fontWeight: 'bold',
+            textAlign: 'center',
+            color: '#343A40',
+        },
+        loginContainer: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        fullWidthInput: {
+            width: '100%',
+            borderWidth: 1,
+            borderColor: '#CED4DA',
+            borderRadius: 8,
+            padding: 10,
+            backgroundColor: '#F8F9FA',
+            color: '#495057',
+            textAlign: 'center',
+        },
+        buttonBox: {
+            width: '100%',
+            borderWidth: 1,
+            borderColor: '#CED4DA',
+            borderRadius: 8,
+            padding: 10,
+            marginBottom: 15,
+            backgroundColor: '#F8F9FA',
+        },
+        registerText: {
+            fontSize: 14,
+            color: '#007BFF',
+            marginTop: 10,
+            textAlign: 'center',
+        },
+        homeContainer: {
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+        },
+        logo: {
+            width: 100, // Set a reasonable width for the logo
+            height: 100, // Set a reasonable height for the logo
+            marginTop: 20, // Add spacing between "Explorer" and the logo
+            alignSelf: 'center', // Center the logo horizontally
+            resizeMode: 'contain', // Ensure the logo scales proportionally without cropping
+        },
+        infoText: {
+            fontSize: 16,
+            color: '#495057',
+            marginBottom: 10,
+        },
+        slider: {
+            width: '100%',
+            height: 40,
+        },
+        buttonContainer: {
+            marginTop: 10,
+            width: '100%',
+        },
+    });
 export default HomeScreen;

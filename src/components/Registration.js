@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const baseURL = 'https://colinli.me'
+const baseURL = 'https://colinli.me';
 
 export default function Registration() {
     const [username, setUsername] = useState('');
@@ -12,11 +12,11 @@ export default function Registration() {
     const navigation = useNavigation();
 
     const handleRegister = () => {
-        if(!username || !password || !verifyPassword) {
+        if (!username || !password || !verifyPassword) {
             Alert.alert('Error', 'Please fill in all fields.');
             return;
         }
-        if(password !== verifyPassword) {
+        if (password !== verifyPassword) {
             Alert.alert('Error', 'Passwords do not match.');
             return;
         }
@@ -42,7 +42,7 @@ export default function Registration() {
                     Alert.alert('Success', 'Account registered successfully!', [
                         {
                             text: 'OK',
-                            onPress: () => navigation.navigate('Explorer'), 
+                            onPress: () => navigation.navigate('Explorer'),
                         },
                     ]);
                 } else {
@@ -56,28 +56,61 @@ export default function Registration() {
     };
 
     return (
-        <View>
-            <Text>Username:</Text>
+        <View style={styles.container}>
+            <Text style={styles.label}>Username:</Text>
             <TextInput
                 value={username}
                 onChangeText={(text) => setUsername(text)}
                 placeholder="Enter username"
+                style={styles.input}
             />
-            <Text>Password:</Text>
+            <Text style={styles.label}>Password:</Text>
             <TextInput
                 value={password}
                 onChangeText={(text) => setPassword(text)}
                 placeholder="Enter password"
                 secureTextEntry
+                style={styles.input}
             />
-            <Text>Verify Password:</Text>
+            <Text style={styles.label}>Verify Password:</Text>
             <TextInput
                 value={verifyPassword}
                 onChangeText={(text) => setVerifyPassword(text)}
                 placeholder="Verify password"
                 secureTextEntry
+                style={styles.input}
             />
-            <Button title="Register" onPress={handleRegister} />
+            <TouchableOpacity style={styles.button} onPress={handleRegister}>
+                <Text style={styles.buttonText}>Register</Text>
+            </TouchableOpacity>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        padding: 20,
+    },
+    label: {
+        fontSize: 16,
+        marginBottom: 5,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+        padding: 10,
+        marginBottom: 15,
+    },
+    button: {
+        backgroundColor: '#007BFF',
+        padding: 15,
+        borderRadius: 5,
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+});
