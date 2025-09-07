@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ImageBackground, Image, View, Text, TextInput, Button, Alert, StyleSheet, Linking } from 'react-native';
+import { ImageBackground, Image, View, Text, TextInput, Button, Alert, StyleSheet, Linking, DeviceEventEmitter } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -11,7 +11,6 @@ import * as TaskManager from 'expo-task-manager';
 const baseURL = 'https://colinli.me';
 const LOCATION_TRACKING = 'location-tracking';
 
-// Helper functions
 async function isTokenExpired(token) {
     if (!token) return true;
     try {
@@ -52,6 +51,29 @@ async function refreshAuthToken() {
     }
 }
 
+const fetchWithTimeout = async (url, options, timeout = 3000) => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    options = { ...options, signal };
+
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            controller.abort();
+            reject(new Error('Request timeout'));
+        }, timeout);
+
+        fetch(url, options)
+            .then((response) => {
+                clearTimeout(timeoutId);
+                resolve(response);
+            })
+            .catch((error) => {
+                clearTimeout(timeoutId);
+                reject(error);
+            });
+    });
+};
+
 async function saveLocationDataToStorage(data) {
     try {
         const existingData = await AsyncStorage.getItem('locationData');
@@ -59,8 +81,12 @@ async function saveLocationDataToStorage(data) {
         locationDataArray.push(data);
         console.log('queued location');
         await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+    // Notify listeners (UI) of updated queue size
+    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
+        return locationDataArray.length;
     } catch (error) {
         console.error('Error saving location data:', error);
+        return 0;
     }
 }
 
@@ -76,7 +102,6 @@ async function sendLocationDataWithRetry(data, token) {
         };
         const response = await fetchWithTimeout(`${baseURL}/update`, options);
         if (!response.ok) throw new Error('Failed to update location');
-        // update lastUpdated state via event if needed
         console.log('Location sent successfully');
         return response.json();
     } catch (error) {
@@ -105,17 +130,23 @@ async function sendSavedLocationData(username) {
                 if (response.ok) {
                     await AsyncStorage.removeItem('locationData');
                     console.log('Cleared Queue');
+                    DeviceEventEmitter.emit('locationQueueUpdated', 0);
+                    return true;
                 } else {
                     console.error('Failed to send batch location data');
+                    // Emit current size since it remains unchanged
+                    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
+                    return false;
                 }
             }
         }
+        return true;
     } catch (error) {
         console.error('Error sending saved location data:', error);
+        return false;
     }
 }
 
-// Define background task at module load
 TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
     if (error) {
         console.log('LOCATION_TRACKING task ERROR:', error);
@@ -140,34 +171,18 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
         }
         const decoded = jwtDecode(token);
         const username = decoded.username;
-        await sendLocationDataWithRetry({ username, location: latest }, token);
-        await sendSavedLocationData(username);
+        
+        // Try to send the new location
+        const success = await sendLocationDataWithRetry({ username, location: latest }, token);
+        
+        // If successful, also try to send any queued locations
+        if (success) {
+            await sendSavedLocationData(username);
+        }
     } catch (e) {
         console.log('Error in background task handler:', e);
     }
 });
-const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
-    const controller = new AbortController();
-    const { signal } = controller;
-    options = { ...options, signal };
-
-    return new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-            controller.abort();
-            reject(new Error('Request timeout'));
-        }, timeout);
-
-        fetch(url, options)
-            .then((response) => {
-                clearTimeout(timeoutId);
-                resolve(response);
-            })
-            .catch((error) => {
-                clearTimeout(timeoutId);
-                reject(error);
-            });
-    });
-};
 
 const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
@@ -194,7 +209,6 @@ const HomeScreen = ({ route, navigation }) => {
         try {
             TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async (tracking) => {
                 if (!tracking) {
-                    console.log("STARTING")
                     await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
@@ -237,10 +251,29 @@ const HomeScreen = ({ route, navigation }) => {
                 await startLocationTracking();
             };
             restartLocationTracking();
-        } else if(userId != null && updateInterval === null && !isSliding) {
+        } else {
             stopLocationTracking();
         }
     }, [userId, updateInterval, isSliding]);
+
+    // Automatic retry mechanism for queued locations
+    useEffect(() => {
+        if (userId !== null && savedLocationsCount > 0) {
+            // Try to send queued locations every 30 seconds if there are any
+            const retryInterval = setInterval(async () => {
+                try {
+                    const success = await sendSavedLocationData(username);
+                    if (success) {
+                        setSavedLocationsCount(0);
+                        console.log('Successfully sent queued locations');
+                    }
+                } catch (error) {
+                    console.log('Retry attempt failed, will try again later');
+                }
+            }, 30000); // 30 seconds
+            return () => clearInterval(retryInterval);
+        }
+    }, [userId, savedLocationsCount, username]);
 
     useEffect(() => { //this runs when the app is first opened
         const loadTokens = async () => {
@@ -262,18 +295,38 @@ const HomeScreen = ({ route, navigation }) => {
                 }
             }
         };
+
         const config = async () => {
             let resf = await Location.requestForegroundPermissionsAsync();
             let resb = await Location.requestBackgroundPermissionsAsync();
             if (resf.status != 'granted' && resb.status !== 'granted') {
-                console.log('Permission to access location was denied');
+                console.log('Permission to access location was denied!');
             } else {
-                console.log('Permission to access location granted');
+                console.log('Permission to access location granted!');
             }
         };
 
         loadTokens();
         config();
+    }, []);
+
+    // Listen for queue size updates (emitted from background tasks / save operations)
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('locationQueueUpdated', (count) => {
+            setSavedLocationsCount(count);
+        });
+        // Load initial count on mount
+        const loadInitialQueueSize = async () => {
+            try {
+                const savedData = await AsyncStorage.getItem('locationData');
+                const arr = savedData ? JSON.parse(savedData) : [];
+                setSavedLocationsCount(arr.length);
+            } catch (e) {
+                console.log('Failed to load initial queue size', e);
+            }
+        };
+        loadInitialQueueSize();
+        return () => subscription.remove();
     }, []);
 
     const handleSliderChange = (value) => {
@@ -371,48 +424,12 @@ const HomeScreen = ({ route, navigation }) => {
             await AsyncStorage.removeItem('locationData');
             stopLocationTracking();
             setUserId(null);
+            setSavedLocationsCount(0);
 
             Alert.alert('Log out successful');
         } catch (error) {
             console.error('Log out error:', error);
             Alert.alert('Error', error.message);
-        }
-    };
-
-    const isTokenExpired = (token) => { //checks if token is expired
-        if (!token) return true;
-        const decodedToken = jwtDecode(token);
-        const currentTime = Date.now() / 1000;
-        return decodedToken.exp < currentTime;
-    };
-
-    const refreshAuthToken = async () => { //refresh auth token using refreshToken
-        try {
-            const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
-            const options = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ refreshToken: storedRefreshToken }),
-            };
-            const response = await fetchWithTimeout(baseURL + '/refresh-token', options);
-
-            if (!response.ok) {
-                throw new Error('Failed to refresh token');
-            }
-
-            const data = await response.json();
-            const newAccessToken = data.accessToken;
-            const newRefreshToken = data.refreshToken;
-
-            await AsyncStorage.setItem('accessToken', newAccessToken);
-            await AsyncStorage.setItem('refreshToken', newRefreshToken);
-
-            return newAccessToken;
-        } catch (error) {
-            console.error('Token refresh error:', error);
-            return null;
         }
     };
 
