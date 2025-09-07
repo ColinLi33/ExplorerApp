@@ -1,139 +1,151 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ImageBackground } from 'react-native'; // Import ImageBackground
-import { Image } from 'react-native'; // Import Image component
-
-
-import { View, Text, TextInput, Button, Alert,StyleSheet, Linking } from 'react-native';
+import { ImageBackground, Image, View, Text, TextInput, Button, Alert, StyleSheet, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import Slider from '@react-native-community/slider';
 import * as TaskManager from 'expo-task-manager';
 
-const baseURL = 'https://colinli.me'; //replace later
+const baseURL = 'https://colinli.me';
 const LOCATION_TRACKING = 'location-tracking';
-// Helper functions in module scope
+
+// Helper functions
 async function isTokenExpired(token) {
     if (!token) return true;
-    const decoded = jwtDecode(token);
-    return decoded.exp < Date.now() / 1000;
-  }
-  
-  async function refreshAuthToken() {
     try {
-      const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
-      const response = await fetch(`${baseURL}/refresh-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: storedRefreshToken }),
-      });
-      if (!response.ok) throw new Error('Failed to refresh token');
-      const data = await response.json();
-      await AsyncStorage.setItem('accessToken', data.accessToken);
-      await AsyncStorage.setItem('refreshToken', data.refreshToken);
-      return data.accessToken;
-    } catch (e) {
-      console.log('Token refresh error:', e);
-      return null;
-    }
-  }
-  
-  async function saveLocationDataToStorage(data) {
-    try {
-      const existingData = await AsyncStorage.getItem('locationData');
-      const locationDataArray = existingData ? JSON.parse(existingData) : [];
-      locationDataArray.push(data);
-      console.log('queued location');
-      await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+        const decoded = jwtDecode(token);
+        return decoded.exp < Date.now() / 1000;
     } catch (error) {
-      console.error('Error saving location data:', error);
+        console.error('Error decoding token:', error);
+        return true;
     }
-  }
-  
-  async function sendLocationDataWithRetry(data, token) {
+}
+
+async function refreshAuthToken() {
     try {
-      const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      };
-      const response = await fetchWithTimeout(`${baseURL}/update`, options);
-      if (!response.ok) throw new Error('Failed to update location');
-      const now = new Date();
-      // update lastUpdated state via event if needed
-      return response.json();
+        const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
+        if (!storedRefreshToken) {
+            console.log('No refresh token available');
+            return null;
+        }
+        
+        const response = await fetch(`${baseURL}/refresh-token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: storedRefreshToken }),
+        });
+        
+        if (!response.ok) {
+            console.log('Failed to refresh token');
+            return null;
+        }
+        
+        const data = await response.json();
+        await AsyncStorage.setItem('accessToken', data.accessToken);
+        await AsyncStorage.setItem('refreshToken', data.refreshToken);
+        return data.accessToken;
     } catch (error) {
-      console.error('Location update error:', error);
-      await saveLocationDataToStorage(data.location);
-      return false;
+        console.error('Token refresh error:', error);
+        return null;
     }
-  }
-  
-  async function sendSavedLocationData(username) {
+}
+
+async function saveLocationDataToStorage(data) {
     try {
-      const savedData = await AsyncStorage.getItem('locationData');
-      if (savedData) {
-        const locationDataArray = JSON.parse(savedData);
-        const token = await AsyncStorage.getItem('accessToken');
-        if (locationDataArray.length > 0) {
-          const options = {
+        const existingData = await AsyncStorage.getItem('locationData');
+        const locationDataArray = existingData ? JSON.parse(existingData) : [];
+        locationDataArray.push(data);
+        console.log('queued location');
+        await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+    } catch (error) {
+        console.error('Error saving location data:', error);
+    }
+}
+
+async function sendLocationDataWithRetry(data, token) {
+    try {
+        const options = {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ username, location: locationDataArray }),
-          };
-          const response = await fetchWithTimeout(`${baseURL}/update`, options);
-          if (response.ok) {
-            await AsyncStorage.removeItem('locationData');
-            console.log('Cleared Queue');
-          } else {
-            console.error('Failed to send batch location data');
-          }
-        }
-      }
+            body: JSON.stringify(data),
+        };
+        const response = await fetchWithTimeout(`${baseURL}/update`, options);
+        if (!response.ok) throw new Error('Failed to update location');
+        // update lastUpdated state via event if needed
+        console.log('Location sent successfully');
+        return response.json();
     } catch (error) {
-      console.error('Error sending saved location data:', error);
+        console.error('Location update error:', error);
+        await saveLocationDataToStorage(data.location);
+        return false;
     }
-  }
-  
-  // Define background task at module load
-  TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
+}
+
+async function sendSavedLocationData(username) {
+    try {
+        const savedData = await AsyncStorage.getItem('locationData');
+        if (savedData) {
+            const locationDataArray = JSON.parse(savedData);
+            const token = await AsyncStorage.getItem('accessToken');
+            if (locationDataArray.length > 0) {
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ username, location: locationDataArray }),
+                };
+                const response = await fetchWithTimeout(`${baseURL}/update`, options);
+                if (response.ok) {
+                    await AsyncStorage.removeItem('locationData');
+                    console.log('Cleared Queue');
+                } else {
+                    console.error('Failed to send batch location data');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error sending saved location data:', error);
+    }
+}
+
+// Define background task at module load
+TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
     if (error) {
-      console.log('LOCATION_TRACKING task ERROR:', error);
-      return;
+        console.log('LOCATION_TRACKING task ERROR:', error);
+        return;
     }
     const locations = data?.locations;
     if (!locations || locations.length === 0) {
-      console.log('No locations received in background.');
-      return;
+        console.log('No locations received in background.');
+        return;
     }
     const latest = locations.length > 1 ? locations[locations.length - 1] : locations[0];
-    console.log('📍 Background location received:', latest);
-  
+    console.log('Background location received:', latest);
+
     try {
-      let token = await AsyncStorage.getItem('accessToken');
-      if (await isTokenExpired(token)) {
-        token = await refreshAuthToken();
-        if (!token) {
-          console.log('Could not refresh token in background task');
-          return;
+        let token = await AsyncStorage.getItem('accessToken');
+        if (await isTokenExpired(token)) {
+            token = await refreshAuthToken();
+            if (!token) {
+                console.log('Could not refresh token in background task');
+                return;
+            }
         }
-      }
-      const decoded = jwtDecode(token);
-      const username = decoded.username;
-      await sendLocationDataWithRetry({ username, location: latest }, token);
-      await sendSavedLocationData(username);
+        const decoded = jwtDecode(token);
+        const username = decoded.username;
+        await sendLocationDataWithRetry({ username, location: latest }, token);
+        await sendSavedLocationData(username);
     } catch (e) {
-      console.log('Error in background task handler:', e);
+        console.log('Error in background task handler:', e);
     }
-  });
+});
 const fetchWithTimeout = async (url, options, timeout = 3000) => {//3 second timer on request
     const controller = new AbortController();
     const { signal } = controller;
@@ -180,8 +192,6 @@ const HomeScreen = ({ route, navigation }) => {
             return;
         }
         try {
-
-            ;
             TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async (tracking) => {
                 if (!tracking) {
                     console.log("STARTING")
@@ -216,8 +226,8 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     useEffect(() => {
-        console.log(userId, updateInterval, isSliding)
-        if (userId && updateInterval !== null && !isSliding){
+        console.log('Userinfo', userId, updateInterval, isSliding)
+        if (userId !== null && updateInterval !== null && !isSliding){
             const restartLocationTracking = async() => {
                 console.log("Restarting location tracking");
                 await Promise.all([ //avoid race where startTracking finishes before stopTracking, turning it off
@@ -376,76 +386,6 @@ const HomeScreen = ({ route, navigation }) => {
         return decodedToken.exp < currentTime;
     };
 
-    const sendLocationDataWithRetry = async (data, token) => { //data is an object with username and location
-        try {
-            const options = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            };
-            const response = await fetchWithTimeout(baseURL + '/update', options);
-            if (!response.ok) {
-                throw new Error('Failed to update location');
-            }
-
-            const now = new Date();
-            setLastUpdated(now); //update last updated time for app
-
-            return response.json();
-        } catch (error) {
-            console.error('Location update error:', error);
-            await saveLocationDataToStorage(data.location);
-            return false;
-        }
-    };
-
-    const saveLocationDataToStorage = async (data) => { //data is an array of locations
-        try {
-            const existingData = await AsyncStorage.getItem('locationData');
-            const locationDataArray = existingData ? JSON.parse(existingData) : [];
-            locationDataArray.push(data);
-            console.log('queued location');
-            await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
-            setSavedLocationsCount(locationDataArray.length);
-        } catch (error) {
-            console.error('Error saving location data:', error);
-        }
-    };
-
-    const sendSavedLocationData = async () => { //send saved locations to server
-        try {
-            const savedData = await AsyncStorage.getItem('locationData');
-            if (savedData) {
-                const locationDataArray = JSON.parse(savedData);
-                const token = await AsyncStorage.getItem('accessToken');
-                if (locationDataArray.length > 0) {
-                    const options = {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ username: username, location: locationDataArray }),
-                    };
-                    const response = await fetchWithTimeout(baseURL + '/update', options);
-
-                    if (response.ok) {
-                        await AsyncStorage.removeItem('locationData');
-                        setSavedLocationsCount(0);
-                        console.log('Cleared Queue');
-                    } else {
-                        console.error('Failed to send batch location data');
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error sending saved location data:', error);
-        }
-    };
-
     const refreshAuthToken = async () => { //refresh auth token using refreshToken
         try {
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
@@ -478,7 +418,7 @@ const HomeScreen = ({ route, navigation }) => {
 
     return (
         <ImageBackground
-                source={require('../../assets/map-background2.jpg')} // Path to your map image
+                source={require('../../assets/map-background2.jpg')}
                 style={styles.backgroundImage}
         >
         <SafeAreaView style={styles.safeArea}>
@@ -488,21 +428,21 @@ const HomeScreen = ({ route, navigation }) => {
                 <View style={styles.headerContainer}>
                     <Text style={styles.header}>Explorer</Text>
                     <Image
-                    source={require('../../assets/logo.png')} // Path to your logo image
-                    style={styles.logo} // Style for the logo
+                    source={require('../../assets/logo.png')}
+                    style={styles.logo}
                     />
                 </View>
                 {!userId ? (
                     // Login Screen
                     <View style={styles.loginContainer}>
                         <TextInput
-                            style={[styles.fullWidthInput, { marginBottom: 10 }]} // Adjusted margin for Username
+                            style={[styles.fullWidthInput, { marginBottom: 10 }]}
                             placeholder="Username"
                             value={username}
                             onChangeText={setUsername}
                         />
                         <TextInput
-                            style={[styles.fullWidthInput, { marginBottom: 20 }]} // Adjusted margin for Password
+                            style={[styles.fullWidthInput, { marginBottom: 20 }]}
                             placeholder="Password"
                             value={password}
                             onChangeText={setPassword}
@@ -607,12 +547,12 @@ const HomeScreen = ({ route, navigation }) => {
 
         backgroundImage: {
             flex: 1,
-            resizeMode: 'cover', // Ensures the image covers the entire screen
+            resizeMode: 'cover', 
         },
 
         headerContainer: {
             alignItems: 'center',
-            marginTop: 10, // Adjust spacing at the top
+            marginTop: 10,
         },
         header: {
             fontSize: 24,
@@ -656,11 +596,11 @@ const HomeScreen = ({ route, navigation }) => {
             alignItems: 'center',
         },
         logo: {
-            width: 100, // Set a reasonable width for the logo
-            height: 100, // Set a reasonable height for the logo
-            marginTop: 20, // Add spacing between "Explorer" and the logo
-            alignSelf: 'center', // Center the logo horizontally
-            resizeMode: 'contain', // Ensure the logo scales proportionally without cropping
+            width: 100,
+            height: 100,
+            marginTop: 20,
+            alignSelf: 'center',
+            resizeMode: 'contain',
         },
         infoText: {
             fontSize: 16,
