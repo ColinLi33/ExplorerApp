@@ -17,11 +17,15 @@
         "UIBackgroundModes": [
           "location",
           "fetch",
+          "remote-notification",
+          "location",
+          "fetch",
           "remote-notification"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location.",
         "NSLocationAlwaysUsageDescription": "This app requires access to the device's location.",
-        "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location."
+        "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.colinli3.Explorer"
     },
@@ -35,7 +39,12 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "com.google.android.gms.permission.ACTIVITY_RECOGNITION"
+        "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "package": "com.colinli3.Explorer",
       "versionCode": 2

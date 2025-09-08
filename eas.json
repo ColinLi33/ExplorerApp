@@ -1,28 +1,21 @@
 {
-    "cli": {
-        "version": ">= 0.34.0"
+  "cli": {
+    "version": ">= 16.18.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
     },
-    "build": {
-        "production": {
-            "android": {
-                "buildType": "app-bundle",
-                "releaseChannel": "default",
-                "autoIncrement": true
-            }
-        }
+    "preview": {
+      "distribution": "internal"
     },
-    "submit": {
-        "production": {
-            "android": {
-                "serviceAccountKeyPath": "../path/to/api-xxx-yyy-zzz.json",
-                "track": "internal"
-            },
-            "ios": {
-                "appleId": "john@turtle.com",
-                "ascAppId": "1234567890",
-                "appleTeamId": "AB12XYZ34S"
-            }
-        }
+    "production": {
+      "autoIncrement": true
     }
+  },
+  "submit": {
+    "production": {}
+  }
 }
-    
