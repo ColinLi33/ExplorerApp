@@ -213,7 +213,7 @@ const HomeScreen = ({ route, navigation }) => {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
                         distanceInterval: 0,
-                        showsBackgroundLocationIndicator: true,
+                        showsBackgroundLocationIndicator: false,
                         foregroundService: {
                             notificationTitle: "Explorer",
                             notificationBody: "Tracking your location to provide the best experience possible.",
