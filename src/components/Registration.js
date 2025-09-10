@@ -8,7 +8,14 @@ const baseURL = 'https://colinli.me';
 
 const hashPassword = (password) => {
     const salt = 'imsupersalty123'; 
-    return CryptoJS.SHA256(password + salt).toString();
+    try {
+        const passwordWithSalt = password + salt;
+        const hash = CryptoJS.SHA256(passwordWithSalt).toString();
+        return hash;
+    } catch (error) {
+        console.error('Hashing failed:', error);
+        throw new Error('Password hashing failed');
+    }
 };
 
 export default function Registration() {
@@ -17,7 +24,7 @@ export default function Registration() {
     const [verifyPassword, setVerifyPassword] = useState('');
     const navigation = useNavigation();
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if (!username || !password || !verifyPassword) {
             Alert.alert('Error', 'Please fill in all fields.');
             return;
@@ -26,39 +33,47 @@ export default function Registration() {
             Alert.alert('Error', 'Passwords do not match.');
             return;
         }
-        const url = baseURL + '/register';
-        const data = {
-            username: username,
-            password: hashPassword(password),
-        };
+        
+        try {
+            const hashedPassword = hashPassword(password);
+            
+            const url = baseURL + '/register';
+            const data = {
+                username: username,
+                password: hashedPassword,
+            };
 
-        // Sending POST request
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-        })
-            .then((response) => response.json())
-            .then(async (json) => {
-                if (json.success) {
-                    await AsyncStorage.setItem('accessToken', json.accessToken);
-                    await AsyncStorage.setItem('refreshToken', json.refreshToken);
-                    Alert.alert('Success', 'Account registered successfully!', [
-                        {
-                            text: 'OK',
-                            onPress: () => navigation.navigate('Explorer'),
-                        },
-                    ]);
-                } else {
-                    Alert.alert('Error', json.message);
-                }
+            // Sending POST request
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
             })
-            .catch((error) => {
-                console.error(error);
-                Alert.alert('Error', 'Something went wrong. Please try again later.');
-            });
+                .then((response) => response.json())
+                .then(async (json) => {
+                    if (json.success) {
+                        await AsyncStorage.setItem('accessToken', json.accessToken);
+                        await AsyncStorage.setItem('refreshToken', json.refreshToken);
+                        Alert.alert('Success', 'Account registered successfully!', [
+                            {
+                                text: 'OK',
+                                onPress: () => navigation.navigate('Explorer'),
+                            },
+                        ]);
+                    } else {
+                        Alert.alert('Error', json.message);
+                    }
+                })
+                .catch((error) => {
+                    console.error(error);
+                    Alert.alert('Error', 'Something went wrong. Please try again later.');
+                });
+        } catch (error) {
+            console.error('Password hashing error:', error);
+            Alert.alert('Error', 'Password processing failed. Please try again.');
+        }
     };
 
     return (

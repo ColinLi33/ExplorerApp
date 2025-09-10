@@ -14,7 +14,14 @@ const LOCATION_TRACKING = 'location-tracking';
 
 const hashPassword = (password) => {
     const salt = 'imsupersalty123'; 
-    return CryptoJS.SHA256(password + salt).toString();
+    try {
+        const passwordWithSalt = password + salt;
+        const hash = CryptoJS.SHA256(passwordWithSalt).toString();
+        return hash;
+    } catch (error) {
+        console.error('Hashing failed:', error);
+        throw new Error('Password hashing failed');
+    }
 };
 
 async function isTokenExpired(token) {
@@ -383,12 +390,14 @@ const HomeScreen = ({ route, navigation }) => {
 
     const login = async () => { //login handler
         try {
+            const hashedPassword = hashPassword(password);
+            
             const options = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, password: hashPassword(password) }), // Hash password before sending
+                body: JSON.stringify({ username, password: hashedPassword }), // Hash password before sending
             };
             const response = await fetchWithTimeout(baseURL + '/login', options);
 
