@@ -22,7 +22,37 @@ const hashPassword = (password) => {
         console.error('Hashing failed:', error);
         throw new Error('Password hashing failed');
     }
-};
+}
+
+const getRelativeTime = (timestamp) => {
+    if (!timestamp) return '';
+    
+    const now = Date.now();
+    const diffInMs = now - timestamp;
+    const diffInMinutes = Math.round(diffInMs / (1000 * 60));
+    
+    if (diffInMinutes === 0) {
+        return '0 minutes ago';
+    } else if (diffInMinutes === 1) {
+        return '1 minute ago';
+    } else if (diffInMinutes < 60) {
+        return `${diffInMinutes} minutes ago`;
+    } else {
+        const hours = Math.round(diffInMinutes / 60);
+        if (hours === 1) {
+            return '1 hour ago';
+        } else if (hours < 24) {
+            return `${hours} hours ago`;
+        } else {
+            const days = Math.round(hours / 24);
+            if (days === 1) {
+                return '1 day ago';
+            } else {
+                return `${days} days ago`;
+            }
+        }
+    }
+}
 
 async function isTokenExpired(token) {
     if (!token) return true;
@@ -115,6 +145,7 @@ async function sendLocationDataWithRetry(data, token) {
         const response = await fetchWithTimeout(`${baseURL}/update`, options);
         if (!response.ok) throw new Error('Failed to update location');
         console.log('Location sent successfully');
+        DeviceEventEmitter.emit('lastUpdatedSet', Date.now());
         return response.json();
     } catch (error) {
         console.error('Location update error:', error);
@@ -146,6 +177,7 @@ async function sendSavedLocationData(username) {
                     i -= batch.length;
                     await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
                     DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
+                    DeviceEventEmitter.emit('lastUpdatedSet', Date.now());
                 } else {
                     console.error('Failed to send batch location data');
                     DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
@@ -225,7 +257,8 @@ const HomeScreen = ({ route, navigation }) => {
                     await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
-                        distanceInterval: 0,
+                        distanceInterval: 10,
+                        deferredUpdatesDistance: 25,
                         showsBackgroundLocationIndicator: false,
                         foregroundService: {
                             notificationTitle: "Explorer",
@@ -269,25 +302,6 @@ const HomeScreen = ({ route, navigation }) => {
         }
     }, [userId, updateInterval, isSliding]);
 
-    // Automatic retry mechanism for queued locations
-    useEffect(() => {
-        if (userId !== null && savedLocationsCount > 0) {
-            // Try to send queued locations every 30 seconds if there are any
-            const retryInterval = setInterval(async () => {
-                try {
-                    const success = await sendSavedLocationData(username);
-                    if (success) {
-                        setSavedLocationsCount(0);
-                        console.log('Successfully sent queued locations');
-                    }
-                } catch (error) {
-                    console.log('Retry attempt failed, will try again later');
-                }
-            }, 30000); // 30 seconds
-            return () => clearInterval(retryInterval);
-        }
-    }, [userId, savedLocationsCount, username]);
-
     useEffect(() => { //this runs when the app is first opened
         const loadTokens = async () => {
             const storedAccessToken = await AsyncStorage.getItem('accessToken');
@@ -323,7 +337,6 @@ const HomeScreen = ({ route, navigation }) => {
         config();
     }, []);
 
-    // Listen for queue size updates (emitted from background tasks / save operations)
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('locationQueueUpdated', (count) => {
             setSavedLocationsCount(count);
@@ -341,6 +354,14 @@ const HomeScreen = ({ route, navigation }) => {
         loadInitialQueueSize();
         return () => subscription.remove();
     }, []);
+
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('lastUpdatedSet', (time) => {
+            setLastUpdated(time);
+        });
+        return () => subscription.remove();
+    }, []);
+
 
     const handleSliderChange = (value) => {
         let interval;
@@ -496,7 +517,7 @@ const HomeScreen = ({ route, navigation }) => {
                         <Text style={styles.header}>Welcome, {username}</Text>
                         {lastUpdated && (
                             <Text style={styles.infoText}>
-                                Location Last Sent: {lastUpdated.toLocaleTimeString()}
+                                Location Last Sent: {getRelativeTime(lastUpdated)}
                             </Text>
                         )}
                         <Text style={styles.infoText}>Queued Locations: {savedLocationsCount}</Text>
