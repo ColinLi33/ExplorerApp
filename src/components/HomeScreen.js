@@ -94,8 +94,7 @@ async function saveLocationDataToStorage(data) {
         locationDataArray.push(data);
         console.log('queued location');
         await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
-    // Notify listeners (UI) of updated queue size
-    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
+        DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
         return locationDataArray.length;
     } catch (error) {
         console.error('Error saving location data:', error);
@@ -130,24 +129,25 @@ async function sendSavedLocationData(username) {
         if (savedData) {
             const locationDataArray = JSON.parse(savedData);
             const token = await AsyncStorage.getItem('accessToken');
-            if (locationDataArray.length > 0) {
+            for (let i = 0; i < locationDataArray.length; i+=10) {
+                const batch = locationDataArray.slice(i, i + 10);
                 const options = {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({ username, location: locationDataArray }),
+                    body: JSON.stringify({ username, location: batch }),
                 };
                 const response = await fetchWithTimeout(`${baseURL}/update`, options);
-                if (response.ok) {
-                    await AsyncStorage.removeItem('locationData');
-                    console.log('Cleared Queue');
-                    DeviceEventEmitter.emit('locationQueueUpdated', 0);
-                    return true;
+                if(response.ok){
+                    console.log(`Sent batch of ${batch.length} locations`);
+                    locationDataArray.splice(i, batch.length);
+                    i -= batch.length;
+                    await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
+                    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
                 } else {
                     console.error('Failed to send batch location data');
-                    // Emit current size since it remains unchanged
                     DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
                     return false;
                 }
