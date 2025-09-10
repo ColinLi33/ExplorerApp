@@ -582,10 +582,7 @@ const HomeScreen = ({ route, navigation }) => {
         </SafeAreaView>
         </ImageBackground>
     );
-
-
-    }
-
+}
     
     const styles = StyleSheet.create({
         safeArea: {
