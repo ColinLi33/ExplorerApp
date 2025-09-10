@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import CryptoJS from 'crypto-js';
 
 const baseURL = 'https://colinli.me';
+
+const hashPassword = (password) => {
+    const salt = 'imsupersalty123'; 
+    return CryptoJS.SHA256(password + salt).toString();
+};
 
 export default function Registration() {
     const [username, setUsername] = useState('');
@@ -20,10 +26,10 @@ export default function Registration() {
             Alert.alert('Error', 'Passwords do not match.');
             return;
         }
-        const url = baseURL + '/register'; // Replace with your API endpoint
+        const url = baseURL + '/register';
         const data = {
             username: username,
-            password: password,
+            password: hashPassword(password),
         };
 
         // Sending POST request

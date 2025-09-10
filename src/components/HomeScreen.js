@@ -7,9 +7,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import Slider from '@react-native-community/slider';
 import * as TaskManager from 'expo-task-manager';
+import CryptoJS from 'crypto-js';
 
 const baseURL = 'https://colinli.me';
 const LOCATION_TRACKING = 'location-tracking';
+
+const hashPassword = (password) => {
+    const salt = 'imsupersalty123'; 
+    return CryptoJS.SHA256(password + salt).toString();
+};
 
 async function isTokenExpired(token) {
     if (!token) return true;
@@ -382,7 +388,7 @@ const HomeScreen = ({ route, navigation }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ username, password: hashPassword(password) }), // Hash password before sending
             };
             const response = await fetchWithTimeout(baseURL + '/login', options);
 
