@@ -145,7 +145,9 @@ async function sendLocationDataWithRetry(data, token) {
         const response = await fetchWithTimeout(`${baseURL}/update`, options);
         if (!response.ok) throw new Error('Failed to update location');
         console.log('Location sent successfully');
-        DeviceEventEmitter.emit('lastUpdatedSet', Date.now());
+        const currentTime = Date.now();
+        DeviceEventEmitter.emit('lastUpdatedSet', currentTime);
+        await AsyncStorage.setItem('lastUpdated', currentTime.toString());
         return response.json();
     } catch (error) {
         console.error('Location update error:', error);
@@ -177,7 +179,9 @@ async function sendSavedLocationData(username) {
                     i -= batch.length;
                     await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
                     DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
-                    DeviceEventEmitter.emit('lastUpdatedSet', Date.now());
+                    const currentTime = Date.now();
+                    DeviceEventEmitter.emit('lastUpdatedSet', currentTime);
+                    await AsyncStorage.setItem('lastUpdated', currentTime.toString());
                 } else {
                     console.error('Failed to send batch location data');
                     DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
@@ -206,23 +210,17 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
     console.log('Background location received:', latest);
 
     try {
-        let token = await AsyncStorage.getItem('accessToken');
-        if (await isTokenExpired(token)) {
-            token = await refreshAuthToken();
-            if (!token) {
-                console.log('Could not refresh token in background task');
-                return;
-            }
+        const storedUsername = await AsyncStorage.getItem('username');
+        const storedToken = await AsyncStorage.getItem('accessToken');
+        
+        if (!storedUsername || !storedToken) {
+            console.log('No username or token available in background task');
+            return;
         }
-        const decoded = jwtDecode(token);
-        const username = decoded.username;
-        
-        // Try to send the new location
-        const success = await sendLocationDataWithRetry({ username, location: latest }, token);
-        
-        // If successful, also try to send any queued locations
+
+        const success = await sendLocationDataWithRetry({ username: storedUsername, location: latest }, storedToken);
         if (success) {
-            await sendSavedLocationData(username);
+            await sendSavedLocationData(storedUsername);
         }
     } catch (e) {
         console.log('Error in background task handler:', e);
@@ -235,8 +233,9 @@ const HomeScreen = ({ route, navigation }) => {
     const [userId, setUserId] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
     const [updateInterval, setUpdateInterval] = useState(5000); //tied to slider
-    const [savedLocationsCount, setSavedLocationsCount] = useState(0);
     const [isSliding, setIsSliding] = useState(false); //for slider
+    const [savedLocationsCount, setSavedLocationsCount] = useState(0);
+    const [clockTick, setClockTick] = useState(0); // ticking state to refresh relative time
 
     const startLocationTracking = async () => { //background task for location tracking
         console.log('starting tracking')
@@ -306,11 +305,18 @@ const HomeScreen = ({ route, navigation }) => {
         const loadTokens = async () => {
             const storedAccessToken = await AsyncStorage.getItem('accessToken');
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
+            const lastUpdated = await AsyncStorage.getItem('lastUpdated');
+            console.log(parseInt(lastUpdated, 10))
+            if(lastUpdated){
+                setLastUpdated(parseInt(lastUpdated, 10));
+            }
 
             if(storedAccessToken && !isTokenExpired(storedAccessToken)) {
                 const decodedToken = jwtDecode(storedAccessToken);
                 setUsername(decodedToken.username);
                 setUserId(decodedToken.userId);
+                await AsyncStorage.setItem('username', decodedToken.username);
+                await AsyncStorage.setItem('accessToken', storedAccessToken);
                 console.log('signing in as', decodedToken.username);
             } else if(storedRefreshToken){
                 const newAccessToken = await refreshAuthToken();
@@ -318,6 +324,8 @@ const HomeScreen = ({ route, navigation }) => {
                     const decodedToken = jwtDecode(newAccessToken);
                     setUsername(decodedToken.username);
                     setUserId(decodedToken.userId);
+                    await AsyncStorage.setItem('username', decodedToken.username); 
+                    await AsyncStorage.setItem('accessToken', newAccessToken);
                     console.log('Signing in as', decodedToken.username);
                 }
             }
@@ -341,7 +349,7 @@ const HomeScreen = ({ route, navigation }) => {
         const subscription = DeviceEventEmitter.addListener('locationQueueUpdated', (count) => {
             setSavedLocationsCount(count);
         });
-        // Load initial count on mount
+
         const loadInitialQueueSize = async () => {
             try {
                 const savedData = await AsyncStorage.getItem('locationData');
@@ -355,13 +363,21 @@ const HomeScreen = ({ route, navigation }) => {
         return () => subscription.remove();
     }, []);
 
+    // Keep the relative time display fresh by ticking every minute
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('lastUpdatedSet', (time) => {
             setLastUpdated(time);
         });
-        return () => subscription.remove();
-    }, []);
 
+        const interval = setInterval(() => {
+            setClockTick((t) => t + 1); 
+        }, 60 * 1000); 
+
+        return () => {
+            subscription.remove();
+            clearInterval(interval);
+        };
+    }, []);
 
     const handleSliderChange = (value) => {
         let interval;
@@ -430,6 +446,7 @@ const HomeScreen = ({ route, navigation }) => {
             
             await AsyncStorage.setItem('accessToken', data.accessToken);
             await AsyncStorage.setItem('refreshToken', data.refreshToken);
+            await AsyncStorage.setItem('username', username);
             
             setUserId(data.userId);
             Alert.alert('Login successful');
@@ -457,9 +474,12 @@ const HomeScreen = ({ route, navigation }) => {
             
             await AsyncStorage.removeItem('accessToken');
             await AsyncStorage.removeItem('refreshToken');
+            await AsyncStorage.removeItem('username');
             await AsyncStorage.removeItem('locationData');
+            await AsyncStorage.removeItem('lastUpdated');
             stopLocationTracking();
             setUserId(null);
+            setLastUpdated(null);
             setSavedLocationsCount(0);
 
             Alert.alert('Log out successful');
