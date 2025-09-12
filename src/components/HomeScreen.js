@@ -256,8 +256,7 @@ const HomeScreen = ({ route, navigation }) => {
                     await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
-                        distanceInterval: 10,
-                        // deferredUpdatesDistance: 25,
+                        distanceInterval: 1,
                         showsBackgroundLocationIndicator: false,
                         foregroundService: {
                             notificationTitle: "Explorer",
