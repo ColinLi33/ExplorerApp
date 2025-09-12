@@ -257,7 +257,7 @@ const HomeScreen = ({ route, navigation }) => {
                         accuracy: Location.Accuracy.Highest,
                         timeInterval: updateInterval,
                         distanceInterval: 10,
-                        deferredUpdatesDistance: 25,
+                        // deferredUpdatesDistance: 25,
                         showsBackgroundLocationIndicator: false,
                         foregroundService: {
                             notificationTitle: "Explorer",
@@ -607,12 +607,11 @@ const HomeScreen = ({ route, navigation }) => {
     const styles = StyleSheet.create({
         safeArea: {
             flex: 1,
-            // backgroundColor: '#FFFFFF',
         },
+
         container: {
             flex: 1,
             padding: 20,
-            // backgroundColor: '#FFFFFF',
         },
 
         backgroundImage: {
@@ -624,17 +623,20 @@ const HomeScreen = ({ route, navigation }) => {
             alignItems: 'center',
             marginTop: 10,
         },
+
         header: {
             fontSize: 24,
             fontWeight: 'bold',
             textAlign: 'center',
             color: '#343A40',
         },
+
         loginContainer: {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
         },
+
         fullWidthInput: {
             width: '100%',
             borderWidth: 1,
@@ -645,6 +647,7 @@ const HomeScreen = ({ route, navigation }) => {
             color: '#495057',
             textAlign: 'center',
         },
+
         buttonBox: {
             width: '100%',
             borderWidth: 1,
@@ -654,17 +657,20 @@ const HomeScreen = ({ route, navigation }) => {
             marginBottom: 15,
             backgroundColor: '#F8F9FA',
         },
+
         registerText: {
             fontSize: 14,
             color: '#007BFF',
             marginTop: 10,
             textAlign: 'center',
         },
+
         homeContainer: {
             flex: 1,
             justifyContent: 'center',
             alignItems: 'center',
         },
+
         logo: {
             width: 100,
             height: 100,
@@ -672,15 +678,18 @@ const HomeScreen = ({ route, navigation }) => {
             alignSelf: 'center',
             resizeMode: 'contain',
         },
+
         infoText: {
             fontSize: 16,
             color: '#495057',
             marginBottom: 10,
         },
+
         slider: {
             width: '100%',
             height: 40,
         },
+        
         buttonContainer: {
             marginTop: 10,
             width: '100%',
