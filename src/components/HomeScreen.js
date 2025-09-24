@@ -1,16 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ImageBackground, Image, View, Text, TextInput, Button, Alert, StyleSheet, Linking, DeviceEventEmitter } from 'react-native';
+import { ImageBackground, Image, View, Text, TextInput, Button, Alert, StyleSheet, Linking, DeviceEventEmitter, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import Slider from '@react-native-community/slider';
 import * as TaskManager from 'expo-task-manager';
 import CryptoJS from 'crypto-js';
 
 const baseURL = 'https://colinli.me';
 const LOCATION_TRACKING = 'location-tracking';
+
+let debugLogs = [];
+const MAX_DEBUG_LOGS = 500;
+
+const addDebugLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    debugLogs.unshift(logEntry);
+    if (debugLogs.length > MAX_DEBUG_LOGS) {
+        debugLogs = debugLogs.slice(0, MAX_DEBUG_LOGS);
+    }
+    DeviceEventEmitter.emit('debugLogAdded', logEntry);
+};
+
+const originalConsoleLog = console.log;
+console.log = (...args) => {
+    originalConsoleLog(...args);
+    addDebugLog(args.join(' '));
+};
 
 const hashPassword = (password) => {
     const salt = 'imsupersalty123'; 
@@ -196,6 +214,49 @@ async function sendSavedLocationData(username) {
     }
 }
 
+const startLocationTracking = async () => {
+    const interval = 5000
+
+    let { status: fg } = await Location.requestForegroundPermissionsAsync();
+    if (fg !== 'granted') {
+        console.log('Foreground location permission denied');
+        return;
+    }
+
+    let { status: bg } = await Location.requestBackgroundPermissionsAsync();
+    if (bg !== 'granted') {
+        console.log('Background location permission denied');
+        return;
+    }
+    
+    try {
+        console.log("Location started?", await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING))
+        await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
+            accuracy: Location.Accuracy.Highest,
+            timeInterval: interval,
+            showsBackgroundLocationIndicator: false,
+            foregroundService: {
+                notificationTitle: "Explorer",
+                notificationBody: `Tracking your location`,
+                notificationColor: "#ff0000",
+            },
+            pausesUpdatesAutomatically: false,
+            killServiceOnDestroy: false,
+        });
+        console.log(`location tracking started with interval ${interval}ms`);
+    } catch (error) {
+        console.error('Failed to start location tracking:', error);
+    }
+};
+
+const stopLocationTracking = async () => {
+    const isTracking = await Location.hasStartedLocationUpdatesAsync(LOCATION_TRACKING);
+    if (isTracking) {
+        await Location.stopLocationUpdatesAsync(LOCATION_TRACKING);
+        console.log('Location tracking stopped');
+    } 
+};
+
 TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
     if (error) {
         console.log('LOCATION_TRACKING task ERROR:', error);
@@ -231,85 +292,29 @@ const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
-    const [lastUpdated, setLastUpdated] = useState(null); //last time location was sent
-    const [updateInterval, setUpdateInterval] = useState(5000); //tied to slider
-    const [isSliding, setIsSliding] = useState(false); //for slider
+    const [lastUpdated, setLastUpdated] = useState(null);
     const [savedLocationsCount, setSavedLocationsCount] = useState(0);
-    const [clockTick, setClockTick] = useState(0); // ticking state to refresh relative time
-
-    const startLocationTracking = async () => { //background task for location tracking
-        console.log('starting tracking')
-        let { status: fg } = await Location.requestForegroundPermissionsAsync();
-        if (fg !== 'granted') {
-            console.log('Foreground location permission denied');
-            return;
-        }
-
-        let { status: bg } = await Location.requestBackgroundPermissionsAsync();
-        if (bg !== 'granted') {
-            console.log('Background location permission denied');
-            return;
-        }
-        try {
-            TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async (tracking) => {
-                if (!tracking) {
-                    await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
-                        accuracy: Location.Accuracy.Highest,
-                        timeInterval: updateInterval,
-                        distanceInterval: 1,
-                        showsBackgroundLocationIndicator: false,
-                        foregroundService: {
-                            notificationTitle: "Explorer",
-                            notificationBody: "Tracking your location to provide the best experience possible.",
-                            notificationColor: "#ff0000",
-                        },
-                        pausesUpdatesAutomatically: false,
-                        killServiceOnDestroy: false,
-                    });
-                    console.log('Location tracking started with interval', updateInterval);
-                }
-            });
-        } catch (error) {
-            console.error('Failed to start location tracking:', error);
-        }
-    };
-
-    const stopLocationTracking = () => {
-        TaskManager.isTaskRegisteredAsync(LOCATION_TRACKING).then(async(tracking) => {
-            if (tracking) {
-                await Location.stopLocationUpdatesAsync(LOCATION_TRACKING);
-            }
-        });
-        console.log('Location tracking stopped');
-    };
+    const [clockTick, setClockTick] = useState(0);
+    const [debugVisible, setDebugVisible] = useState(false);
+    const [debugLogsState, setDebugLogsState] = useState([]);
 
     useEffect(() => {
-        console.log('Userinfo', userId, updateInterval, isSliding)
-        if (userId !== null && updateInterval !== null && !isSliding){
-            const restartLocationTracking = async() => {
-                console.log("Restarting location tracking");
-                await Promise.all([ //avoid race where startTracking finishes before stopTracking, turning it off
-                    stopLocationTracking(),
-                    new Promise((resolve) => setTimeout(resolve, 500)),
-                ]);
-                await startLocationTracking();
-            };
-            restartLocationTracking();
+        if (userId !== null) {
+            startLocationTracking();
         } else {
             stopLocationTracking();
         }
-    }, [userId, updateInterval, isSliding]);
+    }, [userId]);
 
-    useEffect(() => { //this runs when the app is first opened
+    useEffect(() => {
         const loadTokens = async () => {
             const storedAccessToken = await AsyncStorage.getItem('accessToken');
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
             const lastUpdated = await AsyncStorage.getItem('lastUpdated');
-            console.log(parseInt(lastUpdated, 10))
+    
             if(lastUpdated){
                 setLastUpdated(parseInt(lastUpdated, 10));
             }
-
             if(storedAccessToken && !isTokenExpired(storedAccessToken)) {
                 const decodedToken = jwtDecode(storedAccessToken);
                 setUsername(decodedToken.username);
@@ -362,10 +367,13 @@ const HomeScreen = ({ route, navigation }) => {
         return () => subscription.remove();
     }, []);
 
-    // Keep the relative time display fresh by ticking every minute
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('lastUpdatedSet', (time) => {
             setLastUpdated(time);
+        });
+
+        const debugSubscription = DeviceEventEmitter.addListener('debugLogAdded', () => {
+            setDebugLogsState([...debugLogs]);
         });
 
         const interval = setInterval(() => {
@@ -374,57 +382,12 @@ const HomeScreen = ({ route, navigation }) => {
 
         return () => {
             subscription.remove();
+            debugSubscription.remove();
             clearInterval(interval);
         };
     }, []);
 
-    const handleSliderChange = (value) => {
-        let interval;
-        switch (value) {
-            case 0:
-                interval = 1000; //1 second
-                break;
-            case 1:
-                interval = 5000; //5 seconds
-                break;
-            case 2:
-                interval = 10000; //10 seconds
-                break;
-            case 3:
-                interval = 30000; //30 seconds
-                break;
-            case 4:
-                interval = 60000; //1 minute
-                break;
-            case 5:
-                interval = 120000; //2 minutes
-                break;
-            case 6:
-                interval = 300000; //5 minutes
-                break;
-            case 7:
-                interval = 600000; //10 minutes
-                break;
-            case 8:
-                interval = 1800000; //30 minutes
-                break;
-            default:
-                interval = null; //OFF
-        }
-        setUpdateInterval(interval);
-    };
-
-    const getIntervalText = () => { //displays text for slider
-        if (updateInterval === null) {
-            return 'OFF';
-        } else if (updateInterval >= 60000) {
-            return `${updateInterval / 60000}m`;
-        } else {
-            return `${updateInterval / 1000}s`;
-        }
-    };
-
-    const login = async () => { //login handler
+    const login = async () => {
         try {
             const hashedPassword = hashPassword(password);
             
@@ -433,7 +396,7 @@ const HomeScreen = ({ route, navigation }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ username, password: hashedPassword }), // Hash password before sending
+                body: JSON.stringify({ username, password: hashedPassword }),
             };
             const response = await fetchWithTimeout(baseURL + '/login', options);
 
@@ -455,7 +418,7 @@ const HomeScreen = ({ route, navigation }) => {
         }
     };
 
-    const logout = async () => { //log out handler
+    const logout = async () => {
         try {
             const options = {
                 method: 'GET',
@@ -476,11 +439,12 @@ const HomeScreen = ({ route, navigation }) => {
             await AsyncStorage.removeItem('username');
             await AsyncStorage.removeItem('locationData');
             await AsyncStorage.removeItem('lastUpdated');
-            stopLocationTracking();
+            
+            await stopLocationTracking();
+            
             setUserId(null);
             setLastUpdated(null);
             setSavedLocationsCount(0);
-
             Alert.alert('Log out successful');
         } catch (error) {
             console.error('Log out error:', error);
@@ -540,41 +504,24 @@ const HomeScreen = ({ route, navigation }) => {
                             </Text>
                         )}
                         <Text style={styles.infoText}>Queued Locations: {savedLocationsCount}</Text>
-                        <Text style={styles.infoText}>Send Interval:</Text>
-                        <Slider
-                            style={styles.slider}
-                            minimumValue={0}
-                            maximumValue={9}
-                            step={1}
-                            value={
-                                updateInterval === 1000
-                                    ? 0
-                                    : updateInterval === 5000
-                                    ? 1
-                                    : updateInterval === 10000
-                                    ? 2
-                                    : updateInterval === 30000
-                                    ? 3
-                                    : updateInterval === 60000
-                                    ? 4
-                                    : updateInterval === 120000
-                                    ? 5
-                                    : updateInterval === 300000
-                                    ? 6
-                                    : updateInterval === 600000
-                                    ? 7
-                                    : updateInterval === 1800000
-                                    ? 8
-                                    : 9
-                            }
-                            onValueChange={handleSliderChange}
-                            onSlidingStart={() => setIsSliding(true)}
-                            onSlidingComplete={() => setIsSliding(false)}
-                            minimumTrackTintColor="#007BFF"
-                            maximumTrackTintColor="#6C757D"
-                            thumbTintColor="#007BFF"
-                        />
-                        <Text style={styles.infoText}>{getIntervalText()}</Text>
+                        <View style={styles.buttonContainer}>
+                            <Button
+                                title={debugVisible ? "Hide Debug" : "Show Debug"}
+                                onPress={() => setDebugVisible(!debugVisible)}
+                                color="#6C757D"
+                            />
+                        </View>
+                        {debugVisible && (
+                            <View style={styles.debugContainer}>
+                                <Text style={styles.debugTitle}>Debug Console</Text>
+                                <ScrollView style={styles.debugScrollView} nestedScrollEnabled={true}>
+                                    {debugLogsState.map((log, index) => (
+                                        <Text key={index} style={styles.debugText}>{log}</Text>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
                         <View style={styles.buttonContainer}>
                             <Button
                                 title="View Your Map"
@@ -603,95 +550,118 @@ const HomeScreen = ({ route, navigation }) => {
     );
 }
     
-    const styles = StyleSheet.create({
-        safeArea: {
-            flex: 1,
-        },
+const styles = StyleSheet.create({
+    safeArea: {
+        flex: 1,
+    },
 
-        container: {
-            flex: 1,
-            padding: 20,
-        },
+    container: {
+        flex: 1,
+        padding: 20,
+    },
 
-        backgroundImage: {
-            flex: 1,
-            resizeMode: 'cover', 
-        },
+    backgroundImage: {
+        flex: 1,
+        resizeMode: 'cover', 
+    },
 
-        headerContainer: {
-            alignItems: 'center',
-            marginTop: 10,
-        },
+    headerContainer: {
+        alignItems: 'center',
+        marginTop: 10,
+    },
 
-        header: {
-            fontSize: 24,
-            fontWeight: 'bold',
-            textAlign: 'center',
-            color: '#343A40',
-        },
+    header: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        color: '#343A40',
+    },
 
-        loginContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
+    loginContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
 
-        fullWidthInput: {
-            width: '100%',
-            borderWidth: 1,
-            borderColor: '#CED4DA',
-            borderRadius: 8,
-            padding: 10,
-            backgroundColor: '#F8F9FA',
-            color: '#495057',
-            textAlign: 'center',
-        },
+    fullWidthInput: {
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#CED4DA',
+        borderRadius: 8,
+        padding: 10,
+        backgroundColor: '#F8F9FA',
+        color: '#495057',
+        textAlign: 'center',
+    },
 
-        buttonBox: {
-            width: '100%',
-            borderWidth: 1,
-            borderColor: '#CED4DA',
-            borderRadius: 8,
-            padding: 10,
-            marginBottom: 15,
-            backgroundColor: '#F8F9FA',
-        },
+    buttonBox: {
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#CED4DA',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 15,
+        backgroundColor: '#F8F9FA',
+    },
 
-        registerText: {
-            fontSize: 14,
-            color: '#007BFF',
-            marginTop: 10,
-            textAlign: 'center',
-        },
+    registerText: {
+        fontSize: 14,
+        color: '#007BFF',
+        marginTop: 10,
+        textAlign: 'center',
+    },
 
-        homeContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
+    homeContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
 
-        logo: {
-            width: 100,
-            height: 100,
-            marginTop: 20,
-            alignSelf: 'center',
-            resizeMode: 'contain',
-        },
+    logo: {
+        width: 100,
+        height: 100,
+        marginTop: 20,
+        alignSelf: 'center',
+        resizeMode: 'contain',
+    },
 
-        infoText: {
-            fontSize: 16,
-            color: '#495057',
-            marginBottom: 10,
-        },
+    infoText: {
+        fontSize: 16,
+        color: '#495057',
+        marginBottom: 10,
+    },
 
-        slider: {
-            width: '100%',
-            height: 40,
-        },
-        
-        buttonContainer: {
-            marginTop: 10,
-            width: '100%',
-        },
-    });
+    buttonContainer: {
+        marginTop: 10,
+        width: '100%',
+    },
+    
+    debugContainer: {
+        width: '100%',
+        height: 200,
+        backgroundColor: '#000000',
+        borderRadius: 8,
+        marginTop: 10,
+        padding: 10,
+    },
+    
+    debugTitle: {
+        color: '#00FF00',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    
+    debugScrollView: {
+        flex: 1,
+    },
+    
+    debugText: {
+        color: '#00FF00',
+        fontSize: 10,
+        fontFamily: 'monospace',
+        marginBottom: 2,
+    },
+});
+
 export default HomeScreen;
