@@ -115,7 +115,6 @@ const HomeScreen = ({ route, navigation }) => {
         try {
             const data = await loginUser(username, password);
             setUserId(data.userId);
-            Alert.alert('Login successful');
         } catch (error) {
             console.error('Login error:', error);
             Alert.alert('Error', error.message);
@@ -133,7 +132,6 @@ const HomeScreen = ({ route, navigation }) => {
             setUserId(null);
             setLastUpdated(null);
             setSavedLocationsCount(0);
-            Alert.alert('Log out successful');
         } catch (error) {
             console.error('Log out error:', error);
             Alert.alert('Error', error.message);

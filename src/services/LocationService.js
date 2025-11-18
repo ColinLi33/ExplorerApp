@@ -6,10 +6,10 @@ import { baseURL, fetchWithTimeout } from './ApiService';
 import { getDistanceFromLatLonInM } from '../utils/GeoUtils';
 
 const LOCATION_TRACKING = 'location-tracking';
-const FAST_INTERVAL = 5000;
-const SLOW_INTERVAL = 60000;
+const UPDATE_INTERVAL = 10000; // Fixed 10 second interval
 const STATIONARY_THRESHOLD = 10; // meters
-const STATIONARY_LIMIT = 5; // number of checks
+const STATIONARY_LIMIT = 5; // After 5 stationary checks (50s), switch to slow mode
+const SLOW_MODE_SKIP_COUNT = 5; // In slow mode, only process every 6th update (60s)
 
 async function saveLocationDataToStorage(data) {
     try {
@@ -90,7 +90,7 @@ export async function sendSavedLocationData(username) {
     }
 }
 
-export const startLocationTracking = async (interval = FAST_INTERVAL) => {
+export const startLocationTracking = async () => {
     let { status: fg } = await Location.requestForegroundPermissionsAsync();
     if (fg !== 'granted') {
         console.log('Foreground location permission denied');
@@ -111,7 +111,7 @@ export const startLocationTracking = async (interval = FAST_INTERVAL) => {
 
         await Location.startLocationUpdatesAsync(LOCATION_TRACKING, {
             accuracy: Location.Accuracy.Highest,
-            timeInterval: interval,
+            timeInterval: UPDATE_INTERVAL,
             distanceInterval: 0,
             showsBackgroundLocationIndicator: false,
             foregroundService: {
@@ -122,13 +122,13 @@ export const startLocationTracking = async (interval = FAST_INTERVAL) => {
             pausesUpdatesAutomatically: false,
             killServiceOnDestroy: false,
         });
-        console.log(`location tracking started with interval ${interval}ms`);
+        console.log(`location tracking started with interval ${UPDATE_INTERVAL}ms`);
         
-        if (interval === FAST_INTERVAL) {
-             await AsyncStorage.setItem('trackingMode', 'FAST');
-             await AsyncStorage.setItem('stationaryCount', '0');
-             await AsyncStorage.removeItem('lastLocation');
-        }
+        // Reset tracking state
+        await AsyncStorage.setItem('trackingMode', 'FAST');
+        await AsyncStorage.setItem('stationaryCount', '0');
+        await AsyncStorage.setItem('slowModeSkipCounter', '0');
+        await AsyncStorage.removeItem('lastLocation');
 
     } catch (error) {
         console.error('Failed to start location tracking:', error);
@@ -160,7 +160,24 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
         const currentMode = await AsyncStorage.getItem('trackingMode') || 'FAST';
         const lastLocationStr = await AsyncStorage.getItem('lastLocation');
         let stationaryCount = parseInt(await AsyncStorage.getItem('stationaryCount') || '0', 10);
+        let slowModeSkipCounter = parseInt(await AsyncStorage.getItem('slowModeSkipCounter') || '0', 10);
         
+        // If in SLOW mode, only process every Nth update to save battery
+        if (currentMode === 'SLOW') {
+            slowModeSkipCounter++;
+            await AsyncStorage.setItem('slowModeSkipCounter', slowModeSkipCounter.toString());
+            
+            if (slowModeSkipCounter < SLOW_MODE_SKIP_COUNT) {
+                console.log(`SLOW mode: Skipping update ${slowModeSkipCounter}/${SLOW_MODE_SKIP_COUNT}`);
+                return; // Skip processing this update
+            }
+            // Reset counter after processing
+            slowModeSkipCounter = 0;
+            await AsyncStorage.setItem('slowModeSkipCounter', '0');
+        }
+        
+        // Check for movement
+        let hasMoved = false;
         if (lastLocationStr) {
             const lastLocation = JSON.parse(lastLocationStr);
             const distance = getDistanceFromLatLonInM(
@@ -176,25 +193,26 @@ TaskManager.defineTask(LOCATION_TRACKING, async ({ data, error }) => {
                 stationaryCount++;
             } else {
                 stationaryCount = 0;
-                if (currentMode === 'SLOW') {
-                    console.log('Movement detected! Switching to FAST mode.');
-                    await startLocationTracking(FAST_INTERVAL);
-                    await AsyncStorage.setItem('trackingMode', 'FAST');
-                }
+                hasMoved = true;
             }
         }
 
+        // Switch modes based on movement
         if (currentMode === 'FAST' && stationaryCount >= STATIONARY_LIMIT) {
-            console.log('User is stationary. Switching to SLOW mode.');
-            await startLocationTracking(SLOW_INTERVAL);
+            console.log('User is stationary. Switching to SLOW mode (throttling updates).');
             await AsyncStorage.setItem('trackingMode', 'SLOW');
+            await AsyncStorage.setItem('slowModeSkipCounter', '0');
             stationaryCount = 0;
+        } else if (currentMode === 'SLOW' && hasMoved) {
+            console.log('Movement detected! Switching to FAST mode.');
+            await AsyncStorage.setItem('trackingMode', 'FAST');
+            await AsyncStorage.setItem('slowModeSkipCounter', '0');
         }
 
         await AsyncStorage.setItem('lastLocation', JSON.stringify(latest));
         await AsyncStorage.setItem('stationaryCount', stationaryCount.toString());
 
-
+        // Send location data
         const storedUsername = await AsyncStorage.getItem('username');
         const storedToken = await AsyncStorage.getItem('accessToken');
         

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
@@ -43,7 +44,6 @@ export default function Registration() {
                 password: hashedPassword,
             };
 
-            // Sending POST request
             fetch(url, {
                 method: 'POST',
                 headers: {
@@ -78,60 +78,117 @@ export default function Registration() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>Username:</Text>
-            <TextInput
-                value={username}
-                onChangeText={(text) => setUsername(text)}
-                placeholder="Enter username"
-                style={styles.input}
-            />
-            <Text style={styles.label}>Password:</Text>
-            <TextInput
-                value={password}
-                onChangeText={(text) => setPassword(text)}
-                placeholder="Enter password"
-                secureTextEntry
-                style={styles.input}
-            />
-            <Text style={styles.label}>Verify Password:</Text>
-            <TextInput
-                value={verifyPassword}
-                onChangeText={(text) => setVerifyPassword(text)}
-                placeholder="Verify password"
-                secureTextEntry
-                style={styles.input}
-            />
-            <TouchableOpacity style={styles.button} onPress={handleRegister}>
-                <Text style={styles.buttonText}>Register</Text>
-            </TouchableOpacity>
+            <SafeAreaView style={styles.safeArea}>
+                <StatusBar backgroundColor="#0A0A0A" barStyle="light-content" />
+                
+                <View style={styles.contentContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.appTitle}>EXPLORER</Text>
+                        <Text style={styles.subtitle}>Create Account</Text>
+                    </View>
+
+                    <View style={styles.formCard}>
+                        <TextInput
+                            value={username}
+                            onChangeText={(text) => setUsername(text)}
+                            placeholder="Username"
+                            placeholderTextColor="#666"
+                            style={styles.input}
+                        />
+                        <TextInput
+                            value={password}
+                            onChangeText={(text) => setPassword(text)}
+                            placeholder="Password"
+                            placeholderTextColor="#666"
+                            secureTextEntry
+                            style={styles.input}
+                        />
+                        <TextInput
+                            value={verifyPassword}
+                            onChangeText={(text) => setVerifyPassword(text)}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#666"
+                            secureTextEntry
+                            style={styles.input}
+                        />
+                        
+                        <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
+                            <Text style={styles.primaryButtonText}>Create Account</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity onPress={() => navigation.goBack()}>
+                            <Text style={styles.linkText}>Already have an account? Login</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </SafeAreaView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
+        flex: 1,
+        backgroundColor: '#0A0A0A',
     },
-    label: {
+    safeArea: {
+        flex: 1,
+    },
+    contentContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    appTitle: {
+        fontSize: 36,
+        fontWeight: '700',
+        letterSpacing: 4,
+        color: '#00E5FF',
+        marginBottom: 8,
+    },
+    subtitle: {
         fontSize: 16,
-        marginBottom: 5,
+        color: '#BBB',
+        letterSpacing: 1,
+    },
+    formCard: {
+        backgroundColor: '#1A1A1A',
+        borderRadius: 16,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: '#222',
     },
     input: {
+        backgroundColor: '#0F0F0F',
         borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 5,
-        padding: 10,
-        marginBottom: 15,
-    },
-    button: {
-        backgroundColor: '#007BFF',
-        padding: 15,
-        borderRadius: 5,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#fff',
+        borderColor: '#2A2A2A',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        color: '#FFF',
         fontSize: 16,
-        fontWeight: 'bold',
+    },
+    primaryButton: {
+        backgroundColor: '#00E5FF',
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    primaryButtonText: {
+        color: '#0A0A0A',
+        fontSize: 16,
+        fontWeight: '600',
+        letterSpacing: 1,
+    },
+    linkText: {
+        color: '#00E5FF',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 16,
     },
 });

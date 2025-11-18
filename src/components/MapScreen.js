@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const MapScreen = ({ route }) => {
+const MapScreen = ({ route, navigation }) => {
     const { username, token } = route.params;
     const mapUrl = `https://ColinLi.me/map/${username}?token=${token}`;
 
@@ -25,6 +25,12 @@ const MapScreen = ({ route }) => {
                         console.error('WebView error: ', nativeEvent);
                     }}
                 />
+                <TouchableOpacity 
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={styles.backButtonText}>← Back</Text>
+                </TouchableOpacity>
             </SafeAreaView>
         </View>
     );
@@ -56,6 +62,22 @@ const styles = StyleSheet.create({
         marginTop: 16,
         color: '#00E5FF',
         fontSize: 16,
+    },
+    backButton: {
+        position: 'absolute',
+        top: 50,
+        left: 16,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#00E5FF',
+    },
+    backButtonText: {
+        color: '#00E5FF',
+        fontSize: 16,
+        fontWeight: '600',
     },
 });
 
