@@ -117,6 +117,7 @@ export const startLocationTracking = async () => {
 
     BackgroundGeolocation.ready({
         desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
+        distanceFilter: 5, // Lowered to 5m for testing
         stopTimeout: 5,
         stopOnTerminate: false, 
         startOnBoot: true,      

@@ -17,6 +17,9 @@
         "UIBackgroundModes": [
           "location",
           "fetch",
+          "remote-notification",
+          "location",
+          "fetch",
           "remote-notification"
         ],
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location to track your travel history even when the app is closed.",
@@ -33,6 +36,12 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "ACTIVITY_RECOGNITION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
@@ -55,9 +64,15 @@
       [
         "react-native-background-geolocation",
         {
-            "license": "YOUR_LICENSE_KEY_HERE"
+          "license": "YOUR_LICENSE_KEY_HERE"
         }
       ]
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/37671018-88a3-4097-a497-4284bd60a102"
+    }
   }
 }

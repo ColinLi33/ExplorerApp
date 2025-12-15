@@ -17,7 +17,7 @@ const HomeScreen = ({ route, navigation }) => {
     const [userId, setUserId] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(null);
     const [savedLocationsCount, setSavedLocationsCount] = useState(0);
-    const [clockTick, setClockTick] = useState(0);
+
     const [debugVisible, setDebugVisible] = useState(false);
     const [debugLogsState, setDebugLogsState] = useState([]);
 
@@ -79,24 +79,27 @@ const HomeScreen = ({ route, navigation }) => {
         return () => subscription.remove();
     }, []);
 
+    const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('lastUpdatedSet', (time) => {
             setLastUpdated(time);
         });
+        return () => subscription.remove();
+    }, []);
 
-        const debugSubscription = DeviceEventEmitter.addListener('debugLogAdded', () => {
+    useEffect(() => {
+       const debugSubscription = DeviceEventEmitter.addListener('debugLogAdded', () => {
             setDebugLogsState([...getDebugLogs()]);
         });
+        return () => debugSubscription.remove();
+    }, []);
 
+    useEffect(() => {
         const interval = setInterval(() => {
-            setClockTick((t) => t + 1); 
+            forceUpdate();
         }, 60 * 1000); 
-
-        return () => {
-            subscription.remove();
-            debugSubscription.remove();
-            clearInterval(interval);
-        };
+        return () => clearInterval(interval);
     }, []);
 
     const login = async () => {
@@ -179,7 +182,7 @@ const HomeScreen = ({ route, navigation }) => {
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Queued Locations</Text>
+                                <Text style={styles.statLabel}>Queue Size</Text>
                                 <Text style={styles.statValue}>{savedLocationsCount}</Text>
                             </View>
                         </View>
