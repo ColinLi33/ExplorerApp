@@ -56,12 +56,13 @@ export default function Registration() {
                     if (json.success) {
                         await AsyncStorage.setItem('accessToken', json.accessToken);
                         await AsyncStorage.setItem('refreshToken', json.refreshToken);
-                        Alert.alert('Success', 'Account registered successfully!', [
-                            {
-                                text: 'OK',
-                                onPress: () => navigation.navigate('Explorer'),
-                            },
-                        ]);
+                        await AsyncStorage.setItem('username', username);
+                        
+                        // Navigate to home screen and reset stack so they can't go back to registration
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'Explorer' }],
+                        });
                     } else {
                         Alert.alert('Error', json.message);
                     }

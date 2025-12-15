@@ -2,7 +2,7 @@ import BackgroundGeolocation from "react-native-background-geolocation";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
 import { baseURL, fetchWithTimeout } from './ApiService';
-import { addDebugLog } from '../utils/Logger';
+
 
 // Track subscriptions for cleanup
 let locationSubscription = null;
@@ -25,7 +25,7 @@ export async function startLocationTracking() {
             return;
         }
 
-        addDebugLog('Initializing background location tracking...');
+
 
         // Wire up event listeners BEFORE calling ready()
         
@@ -38,52 +38,42 @@ export async function startLocationTracking() {
                     return;
                 }
 
-                const logMsg = `[location] lat=${location.coords.latitude.toFixed(5)}, lng=${location.coords.longitude.toFixed(5)}, accuracy=${location.coords.accuracy?.toFixed(1)}m`;
-                console.log(logMsg);
-                addDebugLog(logMsg);
+                console.log(`[location] lat=${location.coords.latitude.toFixed(5)}, lng=${location.coords.longitude.toFixed(5)}, accuracy=${location.coords.accuracy?.toFixed(1)}m`);
 
                 // Send location to server
                 const locationData = {
                     latitude: location.coords.latitude,
                     longitude: location.coords.longitude,
-                    timestamp: location.timestamp,
+                    timestamp: Date.now(),
                 };
 
                 await sendLocationDataWithRetry({ username, location: locationData }, token);
             },
             (error) => {
                 console.log('[location] ERROR:', error);
-                addDebugLog(`Location error: ${error}`);
             }
         );
 
         // Motion state changes (moving <-> stationary)
         motionChangeSubscription = BackgroundGeolocation.onMotionChange((event) => {
-            const msg = `[motionchange] isMoving=${event.isMoving}`;
-            console.log(msg);
-            addDebugLog(msg);
+            console.log(`[motionchange] isMoving=${event.isMoving}`);
         });
 
         // Activity type changes (walking, driving, etc.)
         activityChangeSubscription = BackgroundGeolocation.onActivityChange((event) => {
-            const msg = `[activity] type=${event.activity}, confidence=${event.confidence}%`;
-            console.log(msg);
-            addDebugLog(msg);
+            console.log(`[activity] type=${event.activity}, confidence=${event.confidence}%`);
         });
 
         // Provider state changes (GPS enabled/disabled)
         providerChangeSubscription = BackgroundGeolocation.onProviderChange((event) => {
-            const msg = `[provider] enabled=${event.enabled}, status=${event.status}`;
-            console.log(msg);
-            addDebugLog(msg);
+            console.log(`[provider] enabled=${event.enabled}, status=${event.status}`);
         });
 
         // Configure and start the plugin
         const state = await BackgroundGeolocation.ready({
             // Geolocation Settings
             desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH, // GPS accuracy for map display
-            distanceFilter: 20, // Base distance filter in meters (auto-scales with speed)
-            elasticityMultiplier: 2, // Controls speed-based scaling of distanceFilter
+            distanceFilter: 10, // Base distance filter in meters (auto-scales with speed)
             stationaryRadius: 25, // Radius to trigger stationary mode
             
             // Activity Recognition
@@ -94,26 +84,20 @@ export async function startLocationTracking() {
             stopOnTerminate: false, // Continue tracking after app is terminated
             startOnBoot: true, // Resume tracking after device reboot
             enableHeadless: true, // Allow headless operation on Android
-            
-            // Battery & Performance
-            preventSuspend: false, // Allow iOS to suspend app for battery savings
-            heartbeatInterval: 60, // Heartbeat interval in seconds (for keeping location fresh)
+            showBackgroundLocationIndicator: false, // Show background location indicator
             
             // Logging (set to error for production, verbose for debugging)
             debug: false, // Disable debug sounds
-            logLevel: BackgroundGeolocation.LOG_LEVEL_ERROR,
-            
-            // We handle HTTP ourselves via onLocation callback
-            // No built-in HTTP sync needed
+            logLevel: BackgroundGeolocation.LOG_LEVEL_OFF,
         });
 
-        addDebugLog(`BackgroundGeolocation ready: enabled=${state.enabled}`);
+
         console.log('[ready] BackgroundGeolocation state:', state);
 
         // Start tracking if not already enabled
         if (!state.enabled) {
             await BackgroundGeolocation.start();
-            addDebugLog('BackgroundGeolocation started');
+
             console.log('[start] Tracking started');
         }
 
@@ -135,7 +119,7 @@ export async function startLocationTracking() {
 
     } catch (error) {
         console.error('Error starting location tracking:', error);
-        addDebugLog(`Error starting tracking: ${error.message}`);
+
     }
 }
 
@@ -144,7 +128,7 @@ export async function startLocationTracking() {
  */
 export async function stopLocationTracking() {
     try {
-        addDebugLog('Stopping location tracking...');
+
 
         // Remove all event subscriptions
         if (locationSubscription) {
@@ -166,12 +150,12 @@ export async function stopLocationTracking() {
 
         // Stop the plugin
         await BackgroundGeolocation.stop();
-        addDebugLog('BackgroundGeolocation stopped');
+
         console.log('[stop] Tracking stopped');
 
     } catch (error) {
         console.error('Error stopping location tracking:', error);
-        addDebugLog(`Error stopping tracking: ${error.message}`);
+
     }
 }
 
@@ -202,9 +186,7 @@ async function sendLocationDataWithRetry(data, token) {
         };
         const response = await fetchWithTimeout(`${baseURL}/update`, options);
         if (!response.ok) throw new Error('Failed to update location');
-        const logMsg = 'Location sent OK';
-        console.log(logMsg);
-        addDebugLog(logMsg);
+        console.log('Location sent OK');
         const currentTime = Date.now();
         DeviceEventEmitter.emit('lastUpdatedSet', currentTime);
         await AsyncStorage.setItem('lastUpdated', currentTime.toString());
