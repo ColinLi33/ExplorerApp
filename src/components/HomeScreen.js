@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity } from 'react-native';
-import * as Location from 'expo-location';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 
 import { addDebugLog, getDebugLogs } from '../utils/Logger';
 import { getRelativeTime } from '../utils/TimeUtils';
-import { baseURL } from '../services/ApiService';
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
 
@@ -59,18 +58,7 @@ const HomeScreen = ({ route, navigation }) => {
             }
         };
 
-        const config = async () => {
-            let resf = await Location.requestForegroundPermissionsAsync();
-            let resb = await Location.requestBackgroundPermissionsAsync();
-            if (resf.status != 'granted' && resb.status !== 'granted') {
-                console.log('Permission to access location was denied!');
-            } else {
-                console.log('Permission to access location granted!');
-            }
-        };
-
         loadTokens();
-        config();
     }, []);
 
     useEffect(() => {
