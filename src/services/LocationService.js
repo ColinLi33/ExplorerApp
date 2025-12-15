@@ -118,17 +118,21 @@ export const startLocationTracking = async () => {
     BackgroundGeolocation.ready({
         desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
         distanceFilter: 5, // Lowered to 5m for testing
-        stopTimeout: 5,
+        stopTimeout: 1,
+        debug: true,
         stopOnTerminate: false, 
         startOnBoot: true,      
     }).then((state) => {
         console.log("- BackgroundGeolocation is configured and ready: ", state.enabled);
 
-        if (!state.enabled) {
-            BackgroundGeolocation.start(function() {
-                console.log("- Start success");
-            });
-        }
+        // Force start for testing
+        BackgroundGeolocation.start(function() {
+            console.log("- Start success");
+        });
+        
+        // Force 'Moving' state immediately for testing
+        // This makes it act like a standard GPS tracker, ignoring stationary motion
+        BackgroundGeolocation.changePace(true); 
     });
 };
 
