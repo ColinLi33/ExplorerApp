@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -15,18 +15,45 @@ const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
+    const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
 
     const [debugVisible, setDebugVisible] = useState(false);
     const [debugLogsState, setDebugLogsState] = useState([]);
     const [pluginLocationsCount, setPluginLocationsCount] = useState(0);
 
+    // Load persistent tracking preference
     useEffect(() => {
-        if (userId !== null) {
+        const loadTrackingPreference = async () => {
+            try {
+                const storedPreference = await AsyncStorage.getItem('isTrackingEnabled');
+                if (storedPreference !== null) {
+                    setIsTrackingEnabled(JSON.parse(storedPreference));
+                }
+            } catch (error) {
+                console.error('Error loading tracking preference:', error);
+            }
+        };
+        loadTrackingPreference();
+    }, []);
+
+    // Toggle Tracking Handler
+    const toggleTracking = async (value) => {
+        setIsTrackingEnabled(value);
+        try {
+            await AsyncStorage.setItem('isTrackingEnabled', JSON.stringify(value));
+        } catch (error) {
+            console.error('Error saving tracking preference:', error);
+        }
+    };
+
+    // Update tracking based on userId AND tracking preference
+    useEffect(() => {
+        if (userId !== null && isTrackingEnabled) {
             startLocationTracking();
         } else {
             stopLocationTracking();
         }
-    }, [userId]);
+    }, [userId, isTrackingEnabled]);
 
     useEffect(() => {
         const loadTokens = async () => {
@@ -194,6 +221,15 @@ const HomeScreen = ({ route, navigation }) => {
                             <View style={styles.statItem}>
                                 <Text style={styles.statLabel}>Queue Size</Text>
                                 <Text style={styles.statValue}>{pluginLocationsCount}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Tracking</Text>
+                                <Switch
+                                    trackColor={{ false: "#767577", true: "#00E5FF" }}
+                                    thumbColor={isTrackingEnabled ? "#f4f3f4" : "#f4f3f4"}
+                                    onValueChange={toggleTracking}
+                                    value={isTrackingEnabled}
+                                />
                             </View>
                         </View>
 

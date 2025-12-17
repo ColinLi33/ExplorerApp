@@ -110,7 +110,7 @@ export async function startLocationTracking() {
                 timeout: 30,
                 maximumAge: 5000,
                 desiredAccuracy: 10,
-                samples: 3,
+                samples: 1,
             });
             console.log('[getCurrentPosition] Initial position:', currentPos.coords);
         } catch (err) {
