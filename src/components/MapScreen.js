@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const MapScreen = ({ route, navigation }) => {
     const { username, token } = route.params;
-    const mapUrl = `https://ColinLi.me/map/${username}?token=${token}`;
+    const mapUrl = `https://ColinLi.me/map/${username}?token=${token}&app=true`;
 
     return (
         <View style={styles.container}>
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     },
     backButton: {
         position: 'absolute',
-        top: 50,
+        top: 20,
         left: 16,
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         paddingHorizontal: 16,
