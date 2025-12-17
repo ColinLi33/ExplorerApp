@@ -5,9 +5,9 @@ import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollVie
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+import BackgroundGeolocation from 'react-native-background-geolocation';
 
 import { addDebugLog, getDebugLogs } from '../utils/Logger';
-import { getRelativeTime } from '../utils/TimeUtils';
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
 
@@ -15,11 +15,10 @@ const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
-    const [lastUpdated, setLastUpdated] = useState(null);
-    const [savedLocationsCount, setSavedLocationsCount] = useState(0);
 
     const [debugVisible, setDebugVisible] = useState(false);
     const [debugLogsState, setDebugLogsState] = useState([]);
+    const [pluginLocationsCount, setPluginLocationsCount] = useState(0);
 
     useEffect(() => {
         if (userId !== null) {
@@ -33,11 +32,7 @@ const HomeScreen = ({ route, navigation }) => {
         const loadTokens = async () => {
             const storedAccessToken = await AsyncStorage.getItem('accessToken');
             const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
-            const lastUpdated = await AsyncStorage.getItem('lastUpdated');
     
-            if(lastUpdated){
-                setLastUpdated(parseInt(lastUpdated, 10));
-            }
             if(storedAccessToken && !await isTokenExpired(storedAccessToken)) {
                 const decodedToken = jwtDecode(storedAccessToken);
                 setUsername(decodedToken.username);
@@ -61,32 +56,7 @@ const HomeScreen = ({ route, navigation }) => {
         loadTokens();
     }, []);
 
-    useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('locationQueueUpdated', (count) => {
-            setSavedLocationsCount(count);
-        });
-
-        const loadInitialQueueSize = async () => {
-            try {
-                const savedData = await AsyncStorage.getItem('locationData');
-                const arr = savedData ? JSON.parse(savedData) : [];
-                setSavedLocationsCount(arr.length);
-            } catch (e) {
-                console.log('Failed to load initial queue size', e);
-            }
-        };
-        loadInitialQueueSize();
-        return () => subscription.remove();
-    }, []);
-
     const [, forceUpdate] = React.useReducer(x => x + 1, 0);
-
-    useEffect(() => {
-        const subscription = DeviceEventEmitter.addListener('lastUpdatedSet', (time) => {
-            setLastUpdated(time);
-        });
-        return () => subscription.remove();
-    }, []);
 
     useEffect(() => {
        const debugSubscription = DeviceEventEmitter.addListener('debugLogAdded', () => {
@@ -95,10 +65,22 @@ const HomeScreen = ({ route, navigation }) => {
         return () => debugSubscription.remove();
     }, []);
 
+    // Polling for plugin stats
     useEffect(() => {
-        const interval = setInterval(() => {
+        const updateStats = async () => {
+            // Update queue size from plugin
+            try {
+                const count = await BackgroundGeolocation.getCount();
+                setPluginLocationsCount(count);
+            } catch (e) {
+                console.log('Failed to get plugin count', e);
+            }
             forceUpdate();
-        }, 60 * 1000); 
+        };
+
+        const interval = setInterval(updateStats, 5000); // Poll every 5 seconds
+        updateStats(); // Initial call
+        
         return () => clearInterval(interval);
     }, []);
 
@@ -121,10 +103,45 @@ const HomeScreen = ({ route, navigation }) => {
             await stopLocationTracking();
             
             setUserId(null);
-            setLastUpdated(null);
-            setSavedLocationsCount(0);
         } catch (error) {
             console.error('Log out error:', error);
+            Alert.alert('Error', error.message);
+        }
+    };
+
+    // Debug: Check plugin's internal location database
+    const checkPluginLocations = async () => {
+        try {
+            const locations = await BackgroundGeolocation.getLocations();
+            setPluginLocationsCount(locations.length);
+            if (locations.length > 0) {
+                const first = locations[0];
+                const last = locations[locations.length - 1];
+                Alert.alert(
+                    `Plugin Locations: ${locations.length}`,
+                    `First: ${new Date(first.timestamp).toLocaleString()}\n` +
+                    `Last: ${new Date(last.timestamp).toLocaleString()}\n\n` +
+                    `Last coords: ${last.coords.latitude.toFixed(5)}, ${last.coords.longitude.toFixed(5)}`
+                );
+            } else {
+                Alert.alert('Plugin Locations', 'No locations stored in plugin database');
+            }
+        } catch (error) {
+            Alert.alert('Error', error.message);
+        }
+    };
+    // Debug: Get current plugin state
+    const checkPluginState = async () => {
+        try {
+            const state = await BackgroundGeolocation.getState();
+            Alert.alert(
+                'Plugin State',
+                `Enabled: ${state.enabled}\n` +
+                `isMoving: ${state.isMoving}\n` +
+                `didLaunchInBackground: ${state.didLaunchInBackground}\n` +
+                `trackingMode: ${state.trackingMode}`
+            );
+        } catch (error) {
             Alert.alert('Error', error.message);
         }
     };
@@ -175,15 +192,8 @@ const HomeScreen = ({ route, navigation }) => {
                         
                         <View style={styles.statsCard}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Last Update</Text>
-                                <Text style={styles.statValue}>
-                                    {lastUpdated ? getRelativeTime(lastUpdated) : 'Never'}
-                                </Text>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statItem}>
                                 <Text style={styles.statLabel}>Queue Size</Text>
-                                <Text style={styles.statValue}>{savedLocationsCount}</Text>
+                                <Text style={styles.statValue}>{pluginLocationsCount}</Text>
                             </View>
                         </View>
 
@@ -219,7 +229,25 @@ const HomeScreen = ({ route, navigation }) => {
 
                         {debugVisible && (
                             <View style={styles.debugCard}>
-                                <Text style={styles.debugTitle}>Debug Console</Text>
+                                <Text style={styles.debugTitle}>Plugin Debug</Text>
+                                
+                                <View style={styles.debugButtonRow}>
+                                    <TouchableOpacity 
+                                        style={styles.debugButton} 
+                                        onPress={checkPluginLocations}
+                                    >
+                                        <Text style={styles.debugButtonText}>Check Locations ({pluginLocationsCount})</Text>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity 
+                                        style={styles.debugButton} 
+                                        onPress={checkPluginState}
+                                    >
+                                        <Text style={styles.debugButtonText}>Check State</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                
+                                <Text style={[styles.debugTitle, { marginTop: 16 }]}>Console Logs</Text>
                                 <ScrollView style={styles.debugScrollView} nestedScrollEnabled={true}>
                                     {debugLogsState.map((log, index) => (
                                         <Text key={index} style={styles.debugText}>{log}</Text>
@@ -396,6 +424,24 @@ const styles = StyleSheet.create({
         fontFamily: 'monospace',
         marginBottom: 4,
         lineHeight: 16,
+    },
+    debugButtonRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    debugButton: {
+        flex: 1,
+        backgroundColor: '#1A1A1A',
+        borderWidth: 1,
+        borderColor: '#00E5FF',
+        borderRadius: 8,
+        padding: 10,
+        alignItems: 'center',
+    },
+    debugButtonText: {
+        color: '#00E5FF',
+        fontSize: 12,
+        fontWeight: '600',
     },
 });
 

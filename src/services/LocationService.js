@@ -1,15 +1,12 @@
 import BackgroundGeolocation from "react-native-background-geolocation";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DeviceEventEmitter } from 'react-native';
-import { baseURL, fetchWithTimeout } from './ApiService';
+import { baseURL } from './ApiService';
 
 // Track subscriptions for cleanup
 let locationSubscription = null;
 let motionChangeSubscription = null;
 let activityChangeSubscription = null;
 let providerChangeSubscription = null;
-
-let lastLocation = null;
 
 export async function startLocationTracking() {
     try {
@@ -20,28 +17,14 @@ export async function startLocationTracking() {
             console.log('Missing username or token, cannot start tracking');
             return;
         }
-        // Location updates - main event for GPS data
+        //TODO: remove after testing
         locationSubscription = BackgroundGeolocation.onLocation(
-            async (location) => {
-                console.log('[location] Received location:', location); 
-                // Skip "sample" locations that are just intermediary updates or are the same as the last location
-                if (location.sample || (lastLocation && location.coords.latitude === lastLocation.coords.latitude && location.coords.longitude === lastLocation.coords.longitude)) {
+            (location) => {
+                if (location.sample) {
                     console.log('[location] Sample received (skipped)');
                     return;
                 }
-
                 console.log(`[location] lat=${location.coords.latitude.toFixed(5)}, lng=${location.coords.longitude.toFixed(5)}, accuracy=${location.coords.accuracy?.toFixed(1)}m`);
-                lastLocation = location;
-
-                // Send location to server
-                const locationData = {
-                    latitude: location.coords.latitude,
-                    longitude: location.coords.longitude,
-                    timestamp: Date.now(),
-                };
-
-
-                await sendLocationDataWithRetry({ username, location: locationData }, token);
             },
             (error) => {
                 console.log('[location] ERROR:', error);
@@ -62,6 +45,16 @@ export async function startLocationTracking() {
         providerChangeSubscription = BackgroundGeolocation.onProviderChange((event) => {
             console.log(`[provider] enabled=${event.enabled}, status=${event.status}`);
         });
+
+        // HTTP sync events (track when locations are synced to server)
+        BackgroundGeolocation.onHttp((event) => {
+            if (event.success) {
+                console.log(`[http] Synced ${event.responseText}`);
+            } else {
+                console.log(`[http] Failed: ${event.status} - ${event.responseText}`);
+            }
+        });
+
         // Configure and start the plugin
         const state = await BackgroundGeolocation.ready({
             // Geolocation Settings
@@ -86,9 +79,25 @@ export async function startLocationTracking() {
                 settingsButton: "Settings"
             },
             
+            // HTTP Sync - sends locations directly from native code (works when JS is suspended)
+            url: `${baseURL}/update`,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            params: {
+                username: username,
+                timestamp: Date.now()
+            },
+            httpRootProperty: 'location',  // Wraps location(s) under "location" key
+            autoSync: true,                // Automatically sync when network available
+            autoSyncThreshold: 5,          // Sync after 5 locations queued
+            batchSync: true,               // Send locations in batches
+            maxBatchSize: 50,              // Max locations per sync request
+            
             // Logging (set to error for production, verbose for debugging)
-            debug: false, // Disable debug sounds
-            logLevel: BackgroundGeolocation.LOG_LEVEL_OFF,
+            debug: false,
+            logLevel: BackgroundGeolocation.LOG_LEVEL_ERROR,
         });
 
         console.log('[ready] BackgroundGeolocation state:', state);
@@ -107,7 +116,6 @@ export async function startLocationTracking() {
         } catch (err) {
             console.log('[getCurrentPosition] Error getting initial position:', err);
         }
-        sendSavedLocationData(username);
     } catch (error) {
         console.error('Error starting location tracking:', error);
     }
@@ -136,90 +144,6 @@ export async function stopLocationTracking() {
     } catch (error) {
         console.error('Error stopping location tracking:', error);
 
-    }
-}
 
-async function saveLocationDataToStorage(data) {
-    try {
-        const existingData = await AsyncStorage.getItem('locationData');
-        const locationDataArray = existingData ? JSON.parse(existingData) : [];
-        locationDataArray.push(data);
-        console.log('queued location');
-        await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
-        DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
-        return locationDataArray.length;
-    } catch (error) {
-        console.error('Error saving location data:', error);
-        return 0;
-    }
-}
-
-async function sendLocationDataWithRetry(data, token) {
-    try {
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(data),
-        };
-        const response = await fetchWithTimeout(`${baseURL}/update`, options);
-        if (!response.ok) throw new Error('Failed to update location');
-        console.log('Location sent OK');
-        const currentTime = Date.now();
-        DeviceEventEmitter.emit('lastUpdatedSet', currentTime);
-        await AsyncStorage.setItem('lastUpdated', currentTime.toString());
-        return response.json();
-    } catch (error) {
-        console.error('Location update error:', error);
-        await saveLocationDataToStorage(data.location);
-        return false;
-    }
-}
-
-async function sendSavedLocationData(username) {
-    try {
-        const savedData = await AsyncStorage.getItem('locationData');
-        if (savedData) {
-            const locationDataArray = JSON.parse(savedData);
-            const token = await AsyncStorage.getItem('accessToken');
-            
-            if (!token) {
-                 console.log('No token for sending saved data');
-                 return false;
-            }
-
-            for (let i = 0; i < locationDataArray.length; i+=10) {
-                const batch = locationDataArray.slice(i, i + 10);
-                const options = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ username, location: batch }),
-                };
-                const response = await fetchWithTimeout(`${baseURL}/update`, options);
-                if(response.ok){
-                    console.log(`Sent batch of ${batch.length} locations`);
-                    locationDataArray.splice(i, batch.length);
-                    i -= batch.length;
-                    await AsyncStorage.setItem('locationData', JSON.stringify(locationDataArray));
-                    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
-                    const currentTime = Date.now();
-                    DeviceEventEmitter.emit('lastUpdatedSet', currentTime);
-                    await AsyncStorage.setItem('lastUpdated', currentTime.toString());
-                } else {
-                    console.error('Failed to send batch location data');
-                    DeviceEventEmitter.emit('locationQueueUpdated', locationDataArray.length);
-                    return false;
-                }
-            }
-        }
-        return true;
-    } catch (error) {
-        console.error('Error sending saved location data:', error);
-        return false;
     }
 }
