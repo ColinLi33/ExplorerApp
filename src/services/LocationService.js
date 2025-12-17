@@ -23,8 +23,9 @@ export async function startLocationTracking() {
         // Location updates - main event for GPS data
         locationSubscription = BackgroundGeolocation.onLocation(
             async (location) => {
+                console.log('[location] Received location:', location); 
                 // Skip "sample" locations that are just intermediary updates or are the same as the last location
-                if (location.sample || (location.coords.latitude === lastLocation.coords.latitude && location.coords.longitude === lastLocation.coords.longitude)) {
+                if (location.sample || (lastLocation && location.coords.latitude === lastLocation.coords.latitude && location.coords.longitude === lastLocation.coords.longitude)) {
                     console.log('[location] Sample received (skipped)');
                     return;
                 }
