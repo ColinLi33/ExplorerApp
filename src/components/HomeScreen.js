@@ -124,7 +124,25 @@ const HomeScreen = ({ route, navigation }) => {
         });
 
         if (!result.canceled) {
-            uploadPhotos(result.assets);
+            const validAssets = result.assets.filter(asset => {
+                const hasGPS = asset.exif && (
+                    (asset.exif.GPSLatitude !== undefined && asset.exif.GPSLongitude !== undefined) ||
+                    (asset.exif['{GPS}'] && asset.exif['{GPS}'].Latitude !== undefined)
+                );
+                return hasGPS;
+            });
+
+            const skippedCount = result.assets.length - validAssets.length;
+            if (skippedCount > 0) {
+                Alert.alert(
+                    'Photos Skipped',
+                    `${skippedCount} photo${skippedCount > 1 ? 's were' : ' was'} skipped because they lack location metadata.`
+                );
+            }
+
+            if (validAssets.length > 0) {
+                uploadPhotos(validAssets);
+            }
         }
     };
 
