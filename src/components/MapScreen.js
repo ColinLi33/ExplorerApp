@@ -1,11 +1,12 @@
-import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { baseURL } from '../services/ApiService';
+
 const MapScreen = ({ route, navigation }) => {
     const { username, token } = route.params;
-    const mapUrl = `https://ColinLi.me/map/${username}?token=${token}&app=true`;
+    const mapUrl = `${baseURL}/map/${username}?token=${token}&app=true`;
 
     return (
         <View style={styles.container}>

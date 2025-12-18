@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -10,6 +10,8 @@ import BackgroundGeolocation from 'react-native-background-geolocation';
 import { addDebugLog, getDebugLogs } from '../utils/Logger';
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
+import * as ImagePicker from 'expo-image-picker';
+import { baseURL } from '../services/ApiService';
 
 const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
@@ -20,6 +22,7 @@ const HomeScreen = ({ route, navigation }) => {
     const [debugVisible, setDebugVisible] = useState(false);
     const [debugLogsState, setDebugLogsState] = useState([]);
     const [pluginLocationsCount, setPluginLocationsCount] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Load persistent tracking preference
     useEffect(() => {
@@ -173,6 +176,77 @@ const HomeScreen = ({ route, navigation }) => {
         }
     };
 
+    const pickAndUploadPhotos = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need access to your photos to pin them to the map.');
+            return;
+        }
+
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsMultipleSelection: true,
+            quality: 1,
+            exif: true,
+            legacy: true,
+        });
+
+        if (!result.canceled) {
+            uploadPhotos(result.assets);
+        }
+    };
+
+    const uploadPhotos = async (assets) => {
+        setIsUploading(true);
+        const accessToken = await AsyncStorage.getItem('accessToken');
+        const formData = new FormData();
+
+        assets.forEach((asset, index) => {
+            const uri = asset.uri;
+            const name = uri.split('/').pop();
+            const type = 'image/jpeg';
+            
+            formData.append('photos', { 
+                uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''), 
+                name, 
+                type 
+            });
+        });
+
+        try {
+            const response = await fetch(`${baseURL}/upload-photo`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const data = await response.json();
+            
+            let message = `${data.saved} photos uploaded successfully.`;
+            if (data.failed > 0) {
+                message += `\n\n${data.failed} photos failed:`;
+                data.errors.forEach(err => {
+                    message += `\n- ${err.filename}: ${err.reason}`;
+                });
+            }
+
+            Alert.alert('Upload Complete', message);
+
+        } catch (error) {
+            console.error('Upload error:', error);
+            Alert.alert('Upload Error', 'Failed to upload photos. Please try again.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <SafeAreaView style={styles.safeArea}>
@@ -247,6 +321,16 @@ const HomeScreen = ({ route, navigation }) => {
                                 }}
                             >
                                 <Text style={styles.primaryButtonText}>View Map</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={[styles.primaryButton, { backgroundColor: '#FFD700' }, isUploading && { opacity: 0.5 }]} 
+                                onPress={pickAndUploadPhotos}
+                                disabled={isUploading}
+                            >
+                                <Text style={[styles.primaryButtonText, { color: '#000' }]}>
+                                    {isUploading ? "Uploading..." : "Pin Photos"}
+                                </Text>
                             </TouchableOpacity>
                             
                             <TouchableOpacity 
