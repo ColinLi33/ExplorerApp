@@ -1,6 +1,6 @@
 # Explorer App 🌍
 
-The official mobile companion for [Explorer](https://github.com/colinLi33/explorer). Built with **React Native** and **Expo**, this app allows you to track your location in the background, sync your travel history, and view your personal Fog of War map on the go.
+The official mobile companion for [Explorer](https://colinli.me/). Built with **React Native** and **Expo**, this app allows you to track your location in the background, sync your travel history, and view your personal Fog of War map on the go.
 
 <p align="center">
   <img src="./assets/logo.png" width="120" alt="Explorer App Logo" />
