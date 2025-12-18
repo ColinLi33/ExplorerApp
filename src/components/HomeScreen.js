@@ -7,7 +7,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import BackgroundGeolocation from 'react-native-background-geolocation';
 
-import { addDebugLog, getDebugLogs } from '../utils/Logger';
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,9 +18,6 @@ const HomeScreen = ({ route, navigation }) => {
     const [userId, setUserId] = useState(null);
     const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
 
-    const [debugVisible, setDebugVisible] = useState(false);
-    const [debugLogsState, setDebugLogsState] = useState([]);
-    const [pluginLocationsCount, setPluginLocationsCount] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
 
     // Load persistent tracking preference
@@ -86,34 +82,6 @@ const HomeScreen = ({ route, navigation }) => {
         loadTokens();
     }, []);
 
-    const [, forceUpdate] = React.useReducer(x => x + 1, 0);
-
-    useEffect(() => {
-       const debugSubscription = DeviceEventEmitter.addListener('debugLogAdded', () => {
-            setDebugLogsState([...getDebugLogs()]);
-        });
-        return () => debugSubscription.remove();
-    }, []);
-
-    // Polling for plugin stats
-    useEffect(() => {
-        const updateStats = async () => {
-            // Update queue size from plugin
-            try {
-                const count = await BackgroundGeolocation.getCount();
-                setPluginLocationsCount(count);
-            } catch (e) {
-                console.log('Failed to get plugin count', e);
-            }
-            forceUpdate();
-        };
-
-        const interval = setInterval(updateStats, 5000); // Poll every 5 seconds
-        updateStats(); // Initial call
-        
-        return () => clearInterval(interval);
-    }, []);
-
     const login = async () => {
         try {
             const data = await loginUser(username, password);
@@ -139,42 +107,6 @@ const HomeScreen = ({ route, navigation }) => {
         }
     };
 
-    // Debug: Check plugin's internal location database
-    const checkPluginLocations = async () => {
-        try {
-            const locations = await BackgroundGeolocation.getLocations();
-            setPluginLocationsCount(locations.length);
-            if (locations.length > 0) {
-                const first = locations[0];
-                const last = locations[locations.length - 1];
-                Alert.alert(
-                    `Plugin Locations: ${locations.length}`,
-                    `First: ${new Date(first.timestamp).toLocaleString()}\n` +
-                    `Last: ${new Date(last.timestamp).toLocaleString()}\n\n` +
-                    `Last coords: ${last.coords.latitude.toFixed(5)}, ${last.coords.longitude.toFixed(5)}`
-                );
-            } else {
-                Alert.alert('Plugin Locations', 'No locations stored in plugin database');
-            }
-        } catch (error) {
-            Alert.alert('Error', error.message);
-        }
-    };
-    // Debug: Get current plugin state
-    const checkPluginState = async () => {
-        try {
-            const state = await BackgroundGeolocation.getState();
-            Alert.alert(
-                'Plugin State',
-                `Enabled: ${state.enabled}\n` +
-                `isMoving: ${state.isMoving}\n` +
-                `didLaunchInBackground: ${state.didLaunchInBackground}\n` +
-                `trackingMode: ${state.trackingMode}`
-            );
-        } catch (error) {
-            Alert.alert('Error', error.message);
-        }
-    };
 
     const pickAndUploadPhotos = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -196,40 +128,75 @@ const HomeScreen = ({ route, navigation }) => {
         }
     };
 
-    const uploadPhotos = async (assets) => {
-        setIsUploading(true);
-        const accessToken = await AsyncStorage.getItem('accessToken');
-        const formData = new FormData();
 
-        assets.forEach((asset, index) => {
-            const uri = asset.uri;
-            const name = uri.split('/').pop();
-            const type = 'image/jpeg';
-            
-            formData.append('photos', { 
-                uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''), 
-                name, 
-                type 
-            });
+    const uploadPhotos = async (assets) => {
+        const MAX_SIZE_MB = 100;
+        const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        
+        // Calculate total size
+        let totalSizeBytes = 0;
+        assets.forEach(asset => {
+            if (asset.fileSize) totalSizeBytes += asset.fileSize;
         });
 
+        if (totalSizeBytes > MAX_SIZE_BYTES) {
+            Alert.alert(
+                'Upload Limit Exceeded', 
+                `The total size of selected photos (${(totalSizeBytes / (1024 * 1024)).toFixed(1)}MB) exceeds the ${MAX_SIZE_MB}MB limit.`
+            );
+            return;
+        }
+
+        setIsUploading(true);
+        
         try {
+            const accessToken = await AsyncStorage.getItem('accessToken');
+            if (!accessToken) {
+                Alert.alert('Upload Error', 'You must be logged in to upload photos.');
+                return;
+            }
+
+            const formData = new FormData();
+            assets.forEach((asset, index) => {
+                const uri = asset.uri;
+                const name = asset.fileName || uri.split('/').pop() || `photo_${index}.jpg`;
+                const type = 'image/jpeg';
+                
+                formData.append('photos', { 
+                    uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''), 
+                    name, 
+                    type 
+                });
+            });
+
+            // Get timezone offset in format like "-05:00"
+            const getTimezoneOffset = () => {
+                const offset = new Date().getTimezoneOffset();
+                const sign = offset > 0 ? '-' : '+';
+                const absOffset = Math.abs(offset);
+                const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
+                const minutes = (absOffset % 60).toString().padStart(2, '0');
+                return `${sign}${hours}:${minutes}`;
+            };
+
             const response = await fetch(`${baseURL}/upload-photo`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'multipart/form-data',
+                    'Accept': 'application/json',
+                    'X-Timezone-Offset': getTimezoneOffset(),
                 },
                 body: formData,
             });
 
             if (!response.ok) {
-                throw new Error('Upload failed');
+                throw new Error(`Server error: ${response.status}`);
             }
 
             const data = await response.json();
             
             let message = `${data.saved} photos uploaded successfully.`;
+            if (data.duplicates > 0) message += `\n- ${data.duplicates} duplicates ignored.`;
             if (data.failed > 0) {
                 message += `\n\n${data.failed} photos failed:`;
                 data.errors.forEach(err => {
@@ -241,7 +208,7 @@ const HomeScreen = ({ route, navigation }) => {
 
         } catch (error) {
             console.error('Upload error:', error);
-            Alert.alert('Upload Error', 'Failed to upload photos. Please try again.');
+            Alert.alert('Upload Error', `Failed to upload: ${error.message}`);
         } finally {
             setIsUploading(false);
         }
@@ -293,10 +260,6 @@ const HomeScreen = ({ route, navigation }) => {
                         
                         <View style={styles.statsCard}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Queue Size</Text>
-                                <Text style={styles.statValue}>{pluginLocationsCount}</Text>
-                            </View>
-                            <View style={styles.statItem}>
                                 <Text style={styles.statLabel}>Tracking</Text>
                                 <Switch
                                     trackColor={{ false: "#767577", true: "#00E5FF" }}
@@ -333,48 +296,10 @@ const HomeScreen = ({ route, navigation }) => {
                                 </Text>
                             </TouchableOpacity>
                             
-                            <TouchableOpacity 
-                                style={styles.secondaryButton}
-                                onPress={() => setDebugVisible(!debugVisible)}
-                            >
-                                <Text style={styles.secondaryButtonText}>
-                                    {debugVisible ? "Hide Debug" : "Show Debug"}
-                                </Text>
-                            </TouchableOpacity>
-
                             <TouchableOpacity style={styles.logoutButton} onPress={logout}>
                                 <Text style={styles.logoutButtonText}>Logout</Text>
                             </TouchableOpacity>
                         </View>
-
-                        {debugVisible && (
-                            <View style={styles.debugCard}>
-                                <Text style={styles.debugTitle}>Plugin Debug</Text>
-                                
-                                <View style={styles.debugButtonRow}>
-                                    <TouchableOpacity 
-                                        style={styles.debugButton} 
-                                        onPress={checkPluginLocations}
-                                    >
-                                        <Text style={styles.debugButtonText}>Check Locations ({pluginLocationsCount})</Text>
-                                    </TouchableOpacity>
-                                    
-                                    <TouchableOpacity 
-                                        style={styles.debugButton} 
-                                        onPress={checkPluginState}
-                                    >
-                                        <Text style={styles.debugButtonText}>Check State</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                
-                                <Text style={[styles.debugTitle, { marginTop: 16 }]}>Console Logs</Text>
-                                <ScrollView style={styles.debugScrollView} nestedScrollEnabled={true}>
-                                    {debugLogsState.map((log, index) => (
-                                        <Text key={index} style={styles.debugText}>{log}</Text>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        )}
                     </View>
                 )}
             </SafeAreaView>
@@ -517,51 +442,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         marginTop: 16,
-    },
-    debugCard: {
-        backgroundColor: '#0F0F0F',
-        borderRadius: 12,
-        padding: 16,
-        marginTop: 24,
-        borderWidth: 1,
-        borderColor: '#1A1A1A',
-        height: 300,
-    },
-    debugTitle: {
-        color: '#00E5FF',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    debugScrollView: {
-        flex: 1,
-    },
-    debugText: {
-        color: '#00FF88',
-        fontSize: 11,
-        fontFamily: 'monospace',
-        marginBottom: 4,
-        lineHeight: 16,
-    },
-    debugButtonRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    debugButton: {
-        flex: 1,
-        backgroundColor: '#1A1A1A',
-        borderWidth: 1,
-        borderColor: '#00E5FF',
-        borderRadius: 8,
-        padding: 10,
-        alignItems: 'center',
-    },
-    debugButtonText: {
-        color: '#00E5FF',
-        fontSize: 12,
-        fontWeight: '600',
     },
 });
 
