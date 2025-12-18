@@ -24,7 +24,7 @@ const App = () => {
                 <Stack.Screen 
                     name="Map" 
                     component={MapScreen}
-                    options={{ headerShown: false }}
+                    options={{ headerShown: false, gestureEnabled: false }}
                 />
             </Stack.Navigator>
         </NavigationContainer>
