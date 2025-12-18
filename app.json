@@ -26,6 +26,7 @@
         "NSLocationAlwaysUsageDescription": "This app requires access to the device's location to track your travel history even when the app is closed.",
         "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location.",
         "NSMotionUsageDescription": "This app uses motion detection to turn off location tracking when you are stationary to save battery.",
+        "NSPhotoLibraryUsageDescription": "This app requires access to your photo library to let you pin photos to the map.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.colinli3.Explorer"
@@ -59,6 +60,12 @@
         "react-native-background-geolocation",
         {
           "license": "YOUR_LICENSE_KEY_HERE"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "This app requires access to your photo library to let you pin photos to the map."
         }
       ]
     ],
