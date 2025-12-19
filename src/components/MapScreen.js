@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { baseURL } from '../services/ApiService';
 
 const MapScreen = ({ route, navigation }) => {
-    const { username, token } = route.params;
-    const mapUrl = `${baseURL}/map/${username}?token=${token}&app=true`;
+    const { username, viewUser, token } = route.params;
+    const targetUser = viewUser || username;
+    const mapUrl = `${baseURL}/map/${targetUser}?token=${token}&app=true`;
 
     return (
         <View style={styles.container}>
@@ -18,7 +19,7 @@ const MapScreen = ({ route, navigation }) => {
                     renderLoading={() => (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="large" color="#00E5FF" />
-                            <Text style={styles.loadingText}>Loading your map...</Text>
+                            <Text style={styles.loadingText}>Loading map...</Text>
                         </View>
                     )}
                     onError={(syntheticEvent) => {

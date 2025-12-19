@@ -11,6 +11,8 @@ import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../serv
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
 import * as ImagePicker from 'expo-image-picker';
 import { baseURL } from '../services/ApiService';
+import FriendsModal from './FriendsModal';
+import { getFriendRequests } from '../services/FriendsService';
 
 const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
@@ -19,6 +21,8 @@ const HomeScreen = ({ route, navigation }) => {
     const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
 
     const [isUploading, setIsUploading] = useState(false);
+    const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
+    const [hasPendingRequests, setHasPendingRequests] = useState(false);
 
     // Load persistent tracking preference
     useEffect(() => {
@@ -53,6 +57,23 @@ const HomeScreen = ({ route, navigation }) => {
             stopLocationTracking();
         }
     }, [userId, isTrackingEnabled]);
+
+    useEffect(() => {
+        const checkRequests = async () => {
+            if (userId) {
+                try {
+                    const token = await AsyncStorage.getItem('accessToken');
+                    if (token) {
+                        const data = await getFriendRequests(token);
+                        setHasPendingRequests(data.requests && data.requests.length > 0);
+                    }
+                } catch (error) {
+                    console.log('Error checking friend requests:', error);
+                }
+            }
+        };
+        checkRequests();
+    }, [userId]);
 
     useEffect(() => {
         const loadTokens = async () => {
@@ -109,19 +130,6 @@ const HomeScreen = ({ route, navigation }) => {
 
 
     const pickAndUploadPhotos = async () => {
-        if (Platform.OS === 'android') {
-            await new Promise((resolve) => {
-                Alert.alert(
-                    'Photo Access',
-                    'Explorer requires access to your photo library to let you pin photos to the map and share your journey.',
-                    [
-                        { text: 'Cancel', onPress: () => resolve(), style: 'cancel' },
-                        { text: 'OK', onPress: () => resolve() }
-                    ]
-                );
-            });
-        }
-
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission Denied', 'We need access to your photos to pin them to the map.');
@@ -303,6 +311,16 @@ const HomeScreen = ({ route, navigation }) => {
 
                         <View style={styles.actionsContainer}>
                             <TouchableOpacity 
+                                style={styles.secondaryButton} 
+                                onPress={() => setIsFriendsModalVisible(true)}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Text style={styles.secondaryButtonText}>Friends</Text>
+                                    {hasPendingRequests && <View style={styles.notificationBadge} />}
+                                </View>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
                                 style={styles.primaryButton} 
                                 onPress={async () => {
                                     try {
@@ -333,6 +351,13 @@ const HomeScreen = ({ route, navigation }) => {
                         </View>
                     </View>
                 )}
+                
+                <FriendsModal 
+                    visible={isFriendsModalVisible}
+                    onClose={() => setIsFriendsModalVisible(false)}
+                    navigation={navigation}
+                    onUpdateBadge={setHasPendingRequests}
+                />
             </SafeAreaView>
         </View>
     );
@@ -473,6 +498,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         marginTop: 16,
+    },
+    notificationBadge: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#FF5252',
+        marginLeft: 8,
     },
 });
 
