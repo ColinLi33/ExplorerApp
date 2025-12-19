@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform } from 'react-native';
+import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform, ImageBackground } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
@@ -254,9 +255,9 @@ const HomeScreen = ({ route, navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
+        <ImageBackground source={require('../../assets/space2.jpg')} style={styles.container} resizeMode="cover">
+            <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
-                <StatusBar backgroundColor="#0A0A0A" barStyle="light-content" />
                 
                 {!userId ? (
                     <View style={styles.loginContainer}>
@@ -265,18 +266,18 @@ const HomeScreen = ({ route, navigation }) => {
                             <Text style={styles.tagline}>Uncover Your World</Text>
                         </View>
                         
-                        <View style={styles.loginCard}>
+                        <BlurView intensity={40} tint="dark" style={styles.loginCard}>
                             <TextInput
                                 style={styles.input}
                                 placeholder="Username"
-                                placeholderTextColor="#666"
+                                placeholderTextColor="#aaa"
                                 value={username}
                                 onChangeText={setUsername}
                             />
                             <TextInput
                                 style={styles.input}
                                 placeholder="Password"
-                                placeholderTextColor="#666"
+                                placeholderTextColor="#aaa"
                                 value={password}
                                 onChangeText={setPassword}
                                 secureTextEntry
@@ -288,7 +289,7 @@ const HomeScreen = ({ route, navigation }) => {
                             <TouchableOpacity onPress={() => navigation.navigate('Registration')}>
                                 <Text style={styles.linkText}>Create Account</Text>
                             </TouchableOpacity>
-                        </View>
+                        </BlurView>
                     </View>
                 ) : (
                     <View style={styles.homeContainer}>
@@ -297,17 +298,17 @@ const HomeScreen = ({ route, navigation }) => {
                             <Text style={styles.welcomeText}>Welcome, {username}</Text>
                         </View>
                         
-                        <View style={styles.statsCard}>
+                        <BlurView intensity={40} tint="dark" style={styles.statsCard}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statLabel}>Tracking</Text>
                                 <Switch
-                                    trackColor={{ false: "#767577", true: "#00E5FF" }}
+                                    trackColor={{ false: "#767577", true: "#4CAF50" }}
                                     thumbColor={isTrackingEnabled ? "#f4f3f4" : "#f4f3f4"}
                                     onValueChange={toggleTracking}
                                     value={isTrackingEnabled}
                                 />
                             </View>
-                        </View>
+                        </BlurView>
 
                         <View style={styles.actionsContainer}>
                             <TouchableOpacity 
@@ -336,11 +337,11 @@ const HomeScreen = ({ route, navigation }) => {
                             </TouchableOpacity>
 
                             <TouchableOpacity 
-                                style={[styles.primaryButton, { backgroundColor: '#FFD700' }, isUploading && { opacity: 0.5 }]} 
+                                style={[styles.primaryButton, isUploading && { opacity: 0.5 }]} 
                                 onPress={pickAndUploadPhotos}
                                 disabled={isUploading}
                             >
-                                <Text style={[styles.primaryButtonText, { color: '#000' }]}>
+                                <Text style={styles.primaryButtonText}>
                                     {isUploading ? "Uploading..." : "Pin Photos"}
                                 </Text>
                             </TouchableOpacity>
@@ -359,14 +360,14 @@ const HomeScreen = ({ route, navigation }) => {
                     onUpdateBadge={setHasPendingRequests}
                 />
             </SafeAreaView>
-        </View>
+        </ImageBackground>
     );
 }
     
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0A0A',
+        backgroundColor: '#000', // Fallback
     },
     safeArea: {
         flex: 1,
@@ -379,18 +380,21 @@ const styles = StyleSheet.create({
         fontSize: 36,
         fontWeight: '700',
         letterSpacing: 4,
-        color: '#00E5FF',
+        color: '#FFF',
         marginBottom: 8,
+        textShadowColor: 'rgba(255, 255, 255, 0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
     tagline: {
         fontSize: 14,
-        color: '#888',
+        color: 'rgba(255, 255, 255, 0.7)',
         letterSpacing: 2,
         textTransform: 'uppercase',
     },
     welcomeText: {
         fontSize: 16,
-        color: '#BBB',
+        color: 'rgba(255, 255, 255, 0.8)',
         marginTop: 8,
     },
     loginContainer: {
@@ -404,46 +408,39 @@ const styles = StyleSheet.create({
         paddingTop: 60,
     },
     loginCard: {
-        backgroundColor: '#1A1A1A',
         borderRadius: 16,
         padding: 24,
         borderWidth: 1,
-        borderColor: '#222',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        overflow: 'hidden',
     },
     statsCard: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 16,
         padding: 20,
         marginBottom: 24,
         flexDirection: 'row',
         borderWidth: 1,
-        borderColor: '#222',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        overflow: 'hidden',
+        justifyContent: 'center',
     },
     statItem: {
-        flex: 1,
         alignItems: 'center',
-    },
-    statDivider: {
-        width: 1,
-        backgroundColor: '#333',
-        marginHorizontal: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        paddingHorizontal: 10,
     },
     statLabel: {
-        fontSize: 12,
-        color: '#888',
-        textTransform: 'uppercase',
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.8)',
         letterSpacing: 1,
-        marginBottom: 8,
-    },
-    statValue: {
-        fontSize: 18,
-        color: '#00E5FF',
-        fontWeight: '600',
     },
     input: {
-        backgroundColor: '#0F0F0F',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
         padding: 16,
         marginBottom: 16,
@@ -454,36 +451,38 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     primaryButton: {
-        backgroundColor: '#00E5FF',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         marginBottom: 12,
     },
     primaryButtonText: {
-        color: '#0A0A0A',
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '600',
         letterSpacing: 1,
     },
     secondaryButton: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderWidth: 1,
-        borderColor: '#00E5FF',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         marginBottom: 12,
     },
     secondaryButtonText: {
-        color: '#00E5FF',
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '600',
     },
     logoutButton: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: 'rgba(255, 82, 82, 0.1)',
         borderWidth: 1,
-        borderColor: '#FF5252',
+        borderColor: 'rgba(255, 82, 82, 0.5)',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
@@ -494,10 +493,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     linkText: {
-        color: '#00E5FF',
+        color: '#FFF',
         fontSize: 14,
         textAlign: 'center',
         marginTop: 16,
+        textDecorationLine: 'underline',
     },
     notificationBadge: {
         width: 8,
@@ -505,6 +505,14 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: '#FF5252',
         marginLeft: 8,
+        shadowColor: "#FF5252",
+        shadowOffset: {
+            width: 0,
+            height: 0,
+        },
+        shadowOpacity: 0.8,
+        shadowRadius: 5,
+        elevation: 5,
     },
 });
 

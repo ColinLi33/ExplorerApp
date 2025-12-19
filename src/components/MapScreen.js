@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 import { baseURL } from '../services/ApiService';
 
@@ -28,10 +29,12 @@ const MapScreen = ({ route, navigation }) => {
                     }}
                 />
                 <TouchableOpacity 
-                    style={styles.backButton}
                     onPress={() => navigation.goBack()}
+                    style={styles.backButtonContainer}
                 >
-                    <Text style={styles.backButtonText}>← Back</Text>
+                    <BlurView intensity={40} tint="dark" style={styles.backButton}>
+                        <Text style={styles.backButtonText}>← Back</Text>
+                    </BlurView>
                 </TouchableOpacity>
             </SafeAreaView>
         </View>
@@ -62,22 +65,25 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 16,
-        color: '#00E5FF',
+        color: '#FFF',
         fontSize: 16,
     },
-    backButton: {
+    backButtonContainer: {
         position: 'absolute',
         top: 20,
         left: 16,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        borderRadius: 8,
+        overflow: 'hidden',
+    },
+    backButton: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: 8,
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
         borderWidth: 1,
-        borderColor: '#00E5FF',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
     },
     backButtonText: {
-        color: '#00E5FF',
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '600',
     },

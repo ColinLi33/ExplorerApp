@@ -12,6 +12,7 @@ import {
     ScrollView,
     Animated
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFriends, getFriendRequests, sendFriendRequest, acceptFriendRequest, declineFriendRequest, removeFriend } from '../services/FriendsService';
 
@@ -193,12 +194,12 @@ const FriendsModal = ({ visible, onClose, navigation, onUpdateBadge }) => {
     return (
         <Modal
             visible={visible}
-            animationType="slide"
+            animationType="fade"
             transparent={true}
             onRequestClose={onClose}
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
+                <BlurView intensity={80} tint="dark" style={styles.modalContent}>
                     <View style={styles.header}>
                         <Text style={styles.title}>Friends</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -274,7 +275,7 @@ const FriendsModal = ({ visible, onClose, navigation, onUpdateBadge }) => {
                             </>
                         )}
                     </ScrollView>
-                </View>
+                </BlurView>
             </View>
         </Modal>
     );
@@ -290,11 +291,11 @@ const styles = StyleSheet.create({
     modalContent: {
         width: '90%',
         height: '80%',
-        backgroundColor: '#1A1A1A',
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         overflow: 'hidden',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     header: {
         flexDirection: 'row',
@@ -302,19 +303,23 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#333',
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#00E5FF',
+        color: '#FFF',
+        textShadowColor: 'rgba(255, 255, 255, 0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
     closeBtn: {
         padding: 5,
     },
     closeBtnText: {
         fontSize: 24,
-        color: '#FFF',
+        color: 'rgba(255, 255, 255, 0.7)',
     },
     contentContainer: {
         padding: 20,
@@ -323,8 +328,8 @@ const styles = StyleSheet.create({
         marginBottom: 25,
     },
     sectionTitle: {
-        fontSize: 16,
-        color: '#888',
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.6)',
         marginBottom: 10,
         textTransform: 'uppercase',
         letterSpacing: 1,
@@ -335,15 +340,17 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        backgroundColor: '#0F0F0F',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 8,
         padding: 12,
         color: '#FFF',
     },
     sendBtn: {
-        backgroundColor: '#00E5FF',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         borderRadius: 8,
         paddingHorizontal: 20,
         justifyContent: 'center',
@@ -358,7 +365,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#2A2A2A',
+        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     },
     itemText: {
         color: '#FFF',
@@ -370,21 +377,25 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     viewMapBtn: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderWidth: 1,
-        borderColor: '#00E5FF',
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 6,
     },
     acceptBtn: {
-        backgroundColor: '#00E5FF',
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 6,
     },
     declineBtn: {
-        backgroundColor: '#FF5252',
+        backgroundColor: 'rgba(255, 82, 82, 0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 82, 82, 0.5)',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 6,
@@ -393,20 +404,20 @@ const styles = StyleSheet.create({
         padding: 5,
     },
     removeBtnText: {
-        color: '#FF5252',
+        color: 'rgba(255, 82, 82, 0.8)',
         fontSize: 24,
         lineHeight: 24,
     },
     btnTextSmall: {
-        color: '#0A0A0A', // For primary buttons
+        color: '#FFF', // For primary buttons
         fontSize: 14,
         fontWeight: '600',
     },
     viewMapBtnText: {
-        color: '#00E5FF',
+        color: '#FFF',
     },
     emptyText: {
-        color: '#666',
+        color: 'rgba(255, 255, 255, 0.4)',
         fontStyle: 'italic',
     },
     feedbackContainer: {

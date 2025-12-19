@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, StatusBar, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CryptoJS from 'crypto-js';
 
@@ -78,9 +79,9 @@ export default function Registration() {
     };
 
     return (
-        <View style={styles.container}>
+        <ImageBackground source={require('../../assets/space2.jpg')} style={styles.container} resizeMode="cover">
+            <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
-                <StatusBar backgroundColor="#0A0A0A" barStyle="light-content" />
                 
                 <View style={styles.contentContainer}>
                     <View style={styles.header}>
@@ -88,19 +89,19 @@ export default function Registration() {
                         <Text style={styles.subtitle}>Create Account</Text>
                     </View>
 
-                    <View style={styles.formCard}>
+                    <BlurView intensity={40} tint="dark" style={styles.formCard}>
                         <TextInput
                             value={username}
                             onChangeText={(text) => setUsername(text)}
                             placeholder="Username"
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#aaa"
                             style={styles.input}
                         />
                         <TextInput
                             value={password}
                             onChangeText={(text) => setPassword(text)}
                             placeholder="Password"
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#aaa"
                             secureTextEntry
                             style={styles.input}
                         />
@@ -108,7 +109,7 @@ export default function Registration() {
                             value={verifyPassword}
                             onChangeText={(text) => setVerifyPassword(text)}
                             placeholder="Confirm Password"
-                            placeholderTextColor="#666"
+                            placeholderTextColor="#aaa"
                             secureTextEntry
                             style={styles.input}
                         />
@@ -120,17 +121,17 @@ export default function Registration() {
                         <TouchableOpacity onPress={() => navigation.goBack()}>
                             <Text style={styles.linkText}>Already have an account? Login</Text>
                         </TouchableOpacity>
-                    </View>
+                    </BlurView>
                 </View>
             </SafeAreaView>
-        </View>
+        </ImageBackground>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0A0A0A',
+        backgroundColor: '#000',
     },
     safeArea: {
         flex: 1,
@@ -148,25 +149,28 @@ const styles = StyleSheet.create({
         fontSize: 36,
         fontWeight: '700',
         letterSpacing: 4,
-        color: '#00E5FF',
+        color: '#FFF',
         marginBottom: 8,
+        textShadowColor: 'rgba(255, 255, 255, 0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
     },
     subtitle: {
         fontSize: 16,
-        color: '#BBB',
+        color: 'rgba(255, 255, 255, 0.8)',
         letterSpacing: 1,
     },
     formCard: {
-        backgroundColor: '#1A1A1A',
         borderRadius: 16,
         padding: 24,
         borderWidth: 1,
-        borderColor: '#222',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        overflow: 'hidden',
     },
     input: {
-        backgroundColor: '#0F0F0F',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
         padding: 16,
         marginBottom: 16,
@@ -174,22 +178,31 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     primaryButton: {
-        backgroundColor: '#00E5FF',
+        backgroundColor: '#FFF',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         marginBottom: 12,
+        shadowColor: "#FFF",
+        shadowOffset: {
+            width: 0,
+            height: 0,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 5,
     },
     primaryButtonText: {
-        color: '#0A0A0A',
+        color: '#000',
         fontSize: 16,
         fontWeight: '600',
         letterSpacing: 1,
     },
     linkText: {
-        color: '#00E5FF',
+        color: '#FFF',
         fontSize: 14,
         textAlign: 'center',
         marginTop: 16,
+        textDecorationLine: 'underline',
     },
 });
