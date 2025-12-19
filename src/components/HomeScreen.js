@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StatusBar, Animated, LayoutAnimation, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform, ImageBackground } from 'react-native';
 import { BlurView } from 'expo-blur';
+import CryptoJS from 'crypto-js';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
-import BackgroundGeolocation from 'react-native-background-geolocation';
 
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
@@ -15,15 +15,97 @@ import { baseURL } from '../services/ApiService';
 import FriendsModal from './FriendsModal';
 import { getFriendRequests } from '../services/FriendsService';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const hashPassword = (password) => {
+    const salt = 'imsupersalty123'; 
+    try {
+        const passwordWithSalt = password + salt;
+        const hash = CryptoJS.SHA256(passwordWithSalt).toString();
+        return hash;
+    } catch (error) {
+        console.error('Hashing failed:', error);
+        throw new Error('Password hashing failed');
+    }
+};
+
 const HomeScreen = ({ route, navigation }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [userId, setUserId] = useState(null);
+    
+    // Registration State
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [regUsername, setRegUsername] = useState('');
+    const [regPassword, setRegPassword] = useState('');
+    const [regVerifyPassword, setRegVerifyPassword] = useState('');
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const slideAnim = useRef(new Animated.Value(0)).current;
+
     const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
 
     const [isUploading, setIsUploading] = useState(false);
     const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
     const [hasPendingRequests, setHasPendingRequests] = useState(false);
+
+    const toggleAuthMode = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setIsRegistering(!isRegistering);
+    };
+
+    const handleRegister = async () => {
+        if (!regUsername || !regPassword || !regVerifyPassword) {
+            Alert.alert('Error', 'Please fill in all fields.');
+            return;
+        }
+        if (regPassword !== regVerifyPassword) {
+            Alert.alert('Error', 'Passwords do not match.');
+            return;
+        }
+        
+        try {
+            const hashedPassword = hashPassword(regPassword);
+            
+            const url = baseURL + '/register';
+            const data = {
+                username: regUsername,
+                password: hashedPassword,
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const json = await response.json();
+            if (json.success) {
+                await AsyncStorage.setItem('accessToken', json.accessToken);
+                await AsyncStorage.setItem('refreshToken', json.refreshToken);
+                await AsyncStorage.setItem('username', regUsername);
+                
+                // Auto login
+                const decoded = jwtDecode(json.accessToken);
+                setUserId(decoded.userId);
+                setUsername(regUsername);
+                
+                // Reset state
+                setRegUsername('');
+                setRegPassword('');
+                setRegVerifyPassword('');
+                setIsRegistering(false);
+            } else {
+                Alert.alert('Error', json.message);
+            }
+        } catch (error) {
+            console.error('Registration error:', error);
+            Alert.alert('Error', 'Registration failed. Please try again.');
+        }
+    };
 
     // Load persistent tracking preference
     useEffect(() => {
@@ -266,30 +348,65 @@ const HomeScreen = ({ route, navigation }) => {
                             <Text style={styles.tagline}>Uncover Your World</Text>
                         </View>
                         
-                        <BlurView intensity={40} tint="dark" style={styles.loginCard}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Username"
-                                placeholderTextColor="#aaa"
-                                value={username}
-                                onChangeText={setUsername}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Password"
-                                placeholderTextColor="#aaa"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                            <TouchableOpacity style={styles.primaryButton} onPress={login}>
-                                <Text style={styles.primaryButtonText}>Login</Text>
-                            </TouchableOpacity>
-                            
-                            <TouchableOpacity onPress={() => navigation.navigate('Registration')}>
-                                <Text style={styles.linkText}>Create Account</Text>
-                            </TouchableOpacity>
-                        </BlurView>
+                        {isRegistering ? (
+                            <BlurView intensity={40} tint="dark" style={styles.loginCard}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Username"
+                                    placeholderTextColor="#aaa"
+                                    value={regUsername}
+                                    onChangeText={setRegUsername}
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor="#aaa"
+                                    value={regPassword}
+                                    onChangeText={setRegPassword}
+                                    secureTextEntry
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Confirm Password"
+                                    placeholderTextColor="#aaa"
+                                    value={regVerifyPassword}
+                                    onChangeText={setRegVerifyPassword}
+                                    secureTextEntry
+                                />
+                                <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
+                                    <Text style={styles.primaryButtonText}>Sign Up</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity onPress={toggleAuthMode}>
+                                    <Text style={styles.linkText}>Back to Login</Text>
+                                </TouchableOpacity>
+                            </BlurView>
+                        ) : (
+                            <BlurView intensity={40} tint="dark" style={styles.loginCard}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Username"
+                                    placeholderTextColor="#aaa"
+                                    value={username}
+                                    onChangeText={setUsername}
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor="#aaa"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                />
+                                <TouchableOpacity style={styles.primaryButton} onPress={login}>
+                                    <Text style={styles.primaryButtonText}>Login</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity onPress={toggleAuthMode}>
+                                    <Text style={styles.linkText}>Create Account</Text>
+                                </TouchableOpacity>
+                            </BlurView>
+                        )}
                     </View>
                 ) : (
                     <View style={styles.homeContainer}>
