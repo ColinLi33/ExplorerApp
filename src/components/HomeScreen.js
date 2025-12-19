@@ -109,6 +109,19 @@ const HomeScreen = ({ route, navigation }) => {
 
 
     const pickAndUploadPhotos = async () => {
+        if (Platform.OS === 'android') {
+            await new Promise((resolve) => {
+                Alert.alert(
+                    'Photo Access',
+                    'Explorer requires access to your photo library to let you pin photos to the map and share your journey.',
+                    [
+                        { text: 'Cancel', onPress: () => resolve(), style: 'cancel' },
+                        { text: 'OK', onPress: () => resolve() }
+                    ]
+                );
+            });
+        }
+
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission Denied', 'We need access to your photos to pin them to the map.');

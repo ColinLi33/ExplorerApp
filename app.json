@@ -17,14 +17,11 @@
         "UIBackgroundModes": [
           "location",
           "fetch",
-          "remote-notification",
-          "location",
-          "fetch",
           "remote-notification"
         ],
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app requires access to the device's location to track your travel history even when the app is closed.",
-        "NSLocationAlwaysUsageDescription": "This app requires access to the device's location to track your travel history even when the app is closed.",
-        "NSLocationWhenInUseUsageDescription": "This app requires access to the device's location.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Explorer uses your location in the background to automatically map your travel history and discover new areas.",
+        "NSLocationAlwaysUsageDescription": "Explorer uses your location in the background to automatically map your travel history and discover new areas.",
+        "NSLocationWhenInUseUsageDescription": "Explorer uses your location to show where you are on the map and record your trail.",
         "NSMotionUsageDescription": "This app uses motion detection to turn off location tracking when you are stationary to save battery.",
         "NSPhotoLibraryUsageDescription": "This app requires access to your photo library to let you pin photos to the map.",
         "ITSAppUsesNonExemptEncryption": false

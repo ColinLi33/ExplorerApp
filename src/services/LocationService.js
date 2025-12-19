@@ -66,6 +66,21 @@ export async function startLocationTracking() {
             stopTimeout: 3, // Minutes to wait before switching to stationary after stillness
             isMoving: true, // Start in moving mode to get immediate location
             
+            // Permission Settings
+            locationAuthorizationRequest: 'Always',
+            backgroundPermissionRationale: {
+                title: "Allow Background Location Access",
+                message: "This app needs to access your location even when closed to accurately track and map your travel history. Please select 'Allow all the time' in the next screen.",
+                positiveAction: "Settings",
+                negativeAction: "Cancel"
+            },
+            activityRecognitionPermissionRationale: {
+                title: "Allow Activity Recognition",
+                message: "This app uses motion detection to turn off location tracking when you are stationary to save battery.",
+                positiveAction: "OK",
+                negativeAction: "Cancel"
+            },
+            
             // Application Settings
             stopOnTerminate: false, // Continue tracking after app is terminated
             startOnBoot: true, // Resume tracking after device reboot
@@ -74,7 +89,7 @@ export async function startLocationTracking() {
             locationAuthorizationAlert: {
                 titleWhenNotEnabled: "Location services are not enabled",
                 titleWhenOff: "Location services are off",
-                instructions: "You must enable 'Always' in location services to use this app.",
+                instructions: "To track your travel history, you must enable 'Always' in location services.",
                 cancelButton: "Cancel",
                 settingsButton: "Settings"
             },
@@ -89,13 +104,12 @@ export async function startLocationTracking() {
                 username: username,
                 timestamp: Date.now()
             },
-            httpRootProperty: 'location',  // Wraps location(s) under "location" key
-            autoSync: true,                // Automatically sync when network available
-            autoSyncThreshold: 5,          // Sync after 5 locations queued
-            batchSync: true,               // Send locations in batches
-            maxBatchSize: 50,              // Max locations per sync request
+            httpRootProperty: 'location',
+            autoSync: true,              
+            autoSyncThreshold: 5,        
+            batchSync: true,             
+            maxBatchSize: 50,            
             
-            // Logging (set to error for production, verbose for debugging)
             debug: false,
             logLevel: BackgroundGeolocation.LOG_LEVEL_ERROR,
         });
