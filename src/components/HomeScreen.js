@@ -45,10 +45,59 @@ const HomeScreen = ({ route, navigation }) => {
     const slideAnim = useRef(new Animated.Value(0)).current;
 
     const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
+    const [visibility, setVisibility] = useState('private');
 
     const [isUploading, setIsUploading] = useState(false);
     const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
     const [hasPendingRequests, setHasPendingRequests] = useState(false);
+
+    const fetchSettings = async () => {
+        try {
+            const token = await AsyncStorage.getItem('accessToken');
+            if (!token) return;
+
+            const response = await fetch(`${baseURL}/api/user/settings`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.settings) {
+                    setVisibility(data.settings.visibility);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching settings:', error);
+        }
+    };
+
+    const updateVisibility = async (newVisibility) => {
+        const oldVisibility = visibility;
+        setVisibility(newVisibility);
+        
+        try {
+            const token = await AsyncStorage.getItem('accessToken');
+            const response = await fetch(`${baseURL}/updatePrivacy`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ visibility: newVisibility })
+            });
+            
+            if (!response.ok) {
+                setVisibility(oldVisibility);
+                Alert.alert('Error', 'Failed to update visibility');
+            }
+        } catch (error) {
+            setVisibility(oldVisibility);
+            console.error('Error updating visibility:', error);
+            Alert.alert('Error', 'Failed to update visibility');
+        }
+    };
 
     const toggleAuthMode = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -156,6 +205,12 @@ const HomeScreen = ({ route, navigation }) => {
             }
         };
         checkRequests();
+    }, [userId]);
+
+    useEffect(() => {
+        if (userId) {
+            fetchSettings();
+        }
     }, [userId]);
 
     useEffect(() => {
@@ -425,6 +480,31 @@ const HomeScreen = ({ route, navigation }) => {
                                     value={isTrackingEnabled}
                                 />
                             </View>
+                            
+                            <View style={styles.divider} />
+                            
+                            <View style={styles.visibilityContainer}>
+                                <Text style={styles.statLabel}>Map Visibility</Text>
+                                <View style={styles.visibilityControls}>
+                                    {['private', 'friends', 'public'].map((mode) => (
+                                        <TouchableOpacity
+                                            key={mode}
+                                            style={[
+                                                styles.visibilityOption,
+                                                visibility === mode && styles.visibilityOptionActive
+                                            ]}
+                                            onPress={() => updateVisibility(mode)}
+                                        >
+                                            <Text style={[
+                                                styles.visibilityText,
+                                                visibility === mode && styles.visibilityTextActive
+                                            ]}>
+                                                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
                         </BlurView>
 
                         <View style={styles.actionsContainer}>
@@ -536,18 +616,47 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
         marginBottom: 24,
-        flexDirection: 'row',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.5)',
         overflow: 'hidden',
-        justifyContent: 'center',
     },
     statItem: {
         alignItems: 'center',
         flexDirection: 'row',
         justifyContent: 'space-between',
         width: '100%',
-        paddingHorizontal: 10,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        marginVertical: 16,
+    },
+    visibilityContainer: {
+        width: '100%',
+    },
+    visibilityControls: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        borderRadius: 8,
+        padding: 4,
+        marginTop: 12,
+    },
+    visibilityOption: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 6,
+    },
+    visibilityOptionActive: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    visibilityText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    visibilityTextActive: {
+        color: '#FFF',
     },
     statLabel: {
         fontSize: 16,

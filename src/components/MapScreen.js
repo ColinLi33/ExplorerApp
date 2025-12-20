@@ -70,17 +70,17 @@ const styles = StyleSheet.create({
     },
     backButtonContainer: {
         position: 'absolute',
-        top: 20,
+        top: 70,
         left: 16,
         borderRadius: 8,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
     },
     backButton: {
         paddingHorizontal: 16,
         paddingVertical: 12,
         backgroundColor: 'rgba(0, 0, 0, 0.3)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
     },
     backButtonText: {
         color: '#FFF',
