@@ -12,31 +12,29 @@ const MapScreen = ({ route, navigation }) => {
 
     return (
         <View style={styles.container}>
-            <SafeAreaView style={styles.safeArea} edges={['top']}>
-                <WebView
-                    source={{ uri: mapUrl }}
-                    style={styles.webview}
-                    startInLoadingState={true}
-                    renderLoading={() => (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#00E5FF" />
-                            <Text style={styles.loadingText}>Loading map...</Text>
-                        </View>
-                    )}
-                    onError={(syntheticEvent) => {
-                        const { nativeEvent } = syntheticEvent;
-                        console.error('WebView error: ', nativeEvent);
-                    }}
-                />
-                <TouchableOpacity 
-                    onPress={() => navigation.goBack()}
-                    style={styles.backButtonContainer}
-                >
-                    <BlurView intensity={40} tint="dark" style={styles.backButton}>
-                        <Text style={styles.backButtonText}>← Back</Text>
-                    </BlurView>
-                </TouchableOpacity>
-            </SafeAreaView>
+            <WebView
+                source={{ uri: mapUrl }}
+                style={styles.webview}
+                startInLoadingState={true}
+                renderLoading={() => (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#00E5FF" />
+                        <Text style={styles.loadingText}>Loading map...</Text>
+                    </View>
+                )}
+                onError={(syntheticEvent) => {
+                    const { nativeEvent } = syntheticEvent;
+                    console.error('WebView error: ', nativeEvent);
+                }}
+            />
+            <TouchableOpacity 
+                onPress={() => navigation.goBack()}
+                style={styles.backButtonContainer}
+            >
+                <BlurView intensity={40} tint="dark" style={styles.backButton}>
+                    <Text style={styles.backButtonText}>← Back</Text>
+                </BlurView>
+            </TouchableOpacity>
         </View>
     );
 };
@@ -45,9 +43,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0A0A0A',
-    },
-    safeArea: {
-        flex: 1,
     },
     webview: {
         flex: 1,
@@ -70,7 +65,7 @@ const styles = StyleSheet.create({
     },
     backButtonContainer: {
         position: 'absolute',
-        top: 70,
+        top: 50,
         left: 16,
         borderRadius: 8,
         overflow: 'hidden',

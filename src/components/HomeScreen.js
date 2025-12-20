@@ -395,7 +395,7 @@ const HomeScreen = ({ route, navigation }) => {
         <ImageBackground source={require('../../assets/space2.jpg')} style={styles.container} resizeMode="cover">
             <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
-                
+                <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 {!userId ? (
                     <View style={styles.loginContainer}>
                         <View style={styles.header}>
@@ -549,6 +549,7 @@ const HomeScreen = ({ route, navigation }) => {
                         </View>
                     </View>
                 )}
+                </ScrollView>
                 
                 <FriendsModal 
                     visible={isFriendsModalVisible}
