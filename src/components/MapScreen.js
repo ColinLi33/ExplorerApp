@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -15,13 +15,6 @@ const MapScreen = ({ route, navigation }) => {
             <WebView
                 source={{ uri: mapUrl }}
                 style={styles.webview}
-                startInLoadingState={true}
-                renderLoading={() => (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#00E5FF" />
-                        <Text style={styles.loadingText}>Loading map...</Text>
-                    </View>
-                )}
                 onError={(syntheticEvent) => {
                     const { nativeEvent } = syntheticEvent;
                     console.error('WebView error: ', nativeEvent);
@@ -47,21 +40,6 @@ const styles = StyleSheet.create({
     webview: {
         flex: 1,
         backgroundColor: '#0A0A0A',
-    },
-    loadingContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#0A0A0A',
-    },
-    loadingText: {
-        marginTop: 16,
-        color: '#FFF',
-        fontSize: 16,
     },
     backButtonContainer: {
         position: 'absolute',
