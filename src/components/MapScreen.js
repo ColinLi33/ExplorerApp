@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
 import { baseURL } from '../services/ApiService';
