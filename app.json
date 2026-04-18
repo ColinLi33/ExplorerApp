@@ -60,6 +60,14 @@
         }
       ],
       [
+        "react-native-background-fetch",
+        {
+          "stopOnTerminate": false,
+          "startOnBoot": true,
+          "enableHeadless": true
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "This app requires access to your photo library to let you pin photos to the map."
