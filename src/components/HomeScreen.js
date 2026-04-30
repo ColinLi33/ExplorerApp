@@ -66,6 +66,7 @@ const HomeScreen = ({ route, navigation }) => {
                 const data = await response.json();
                 if (data.success && data.settings) {
                     setVisibility(data.settings.visibility);
+                    await AsyncStorage.setItem('visibilityPreference', data.settings.visibility);
                 }
             }
         } catch (error) {
@@ -91,6 +92,8 @@ const HomeScreen = ({ route, navigation }) => {
             if (!response.ok) {
                 setVisibility(oldVisibility);
                 Alert.alert('Error', 'Failed to update visibility');
+            } else {
+                await AsyncStorage.setItem('visibilityPreference', newVisibility);
             }
         } catch (error) {
             setVisibility(oldVisibility);
@@ -158,17 +161,24 @@ const HomeScreen = ({ route, navigation }) => {
 
     // Load persistent tracking preference
     useEffect(() => {
-        const loadTrackingPreference = async () => {
+        const loadPreferences = async () => {
             try {
-                const storedPreference = await AsyncStorage.getItem('isTrackingEnabled');
-                if (storedPreference !== null) {
-                    setIsTrackingEnabled(JSON.parse(storedPreference));
+                const [storedTracking, storedVisibility] = await Promise.all([
+                    AsyncStorage.getItem('isTrackingEnabled'),
+                    AsyncStorage.getItem('visibilityPreference')
+                ]);
+
+                if (storedTracking !== null) {
+                    setIsTrackingEnabled(JSON.parse(storedTracking));
+                }
+                if (storedVisibility !== null) {
+                    setVisibility(storedVisibility);
                 }
             } catch (error) {
-                console.error('Error loading tracking preference:', error);
+                console.error('Error loading preferences:', error);
             }
         };
-        loadTrackingPreference();
+        loadPreferences();
     }, []);
 
     // Toggle Tracking Handler
@@ -393,7 +403,7 @@ const HomeScreen = ({ route, navigation }) => {
 
     return (
         <ImageBackground source={require('../../assets/space2.jpg')} style={styles.container} resizeMode="cover">
-            <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+            <StatusBar translucent {...(Platform.OS === 'android' ? { backgroundColor: 'transparent' } : {})} barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
                 <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 {!userId ? (
@@ -606,6 +616,7 @@ const styles = StyleSheet.create({
         paddingTop: 60,
     },
     loginCard: {
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
         borderRadius: 16,
         padding: 24,
         borderWidth: 1,

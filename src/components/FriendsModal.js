@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
         overflow: 'hidden',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
     },
     header: {
         flexDirection: 'row',
