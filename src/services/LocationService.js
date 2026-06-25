@@ -107,6 +107,11 @@ export async function startLocationTracking() {
 
         // Configure and start the plugin
         const state = await BackgroundGeolocation.ready({
+            // Apply this code-defined config on every launch. Without reset,
+            // .ready() restores the previously-persisted native config and
+            // ignores changes made here — so config tweaks would silently no-op.
+            reset: true,
+
             // Geolocation Settings
             desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH, // GPS accuracy for map display
             distanceFilter: 10, // Base distance filter in meters (auto-scales with speed)
@@ -119,7 +124,7 @@ export async function startLocationTracking() {
             // Heartbeat — fires every 15 minutes even when stationary.
             // This keeps the plugin alive on iOS and lets us refresh the auth token.
             heartbeatInterval: 900, // 15 minutes (in seconds)
-            preventSuspend: true, // iOS: prevent app suspension to maintain heartbeat
+            preventSuspend: false,
             
             // Permission Settings
             locationAuthorizationRequest: 'Always',
@@ -166,8 +171,8 @@ export async function startLocationTracking() {
             maxBatchSize: 50,
             maxDaysToPersist: 14, // Keep unsent locations for up to 14 days
             
-            debug: false,
-            logLevel: BackgroundGeolocation.LOG_LEVEL_ERROR,
+            debug: false, // no audio cues / notifications; verbose log is enough
+            logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE, // capture full background activity for diagnosis
         });
 
         console.log('[ready] BackgroundGeolocation state:', state);
@@ -261,5 +266,31 @@ export async function stopLocationTracking() {
         console.error('Error stopping location tracking:', error);
 
 
+    }
+}
+
+/**
+ * Returns the plugin's verbose log as a string (newest entries last).
+ * Used by the in-app log viewer to diagnose background behavior.
+ */
+export async function getTrackingLog() {
+    try {
+        return await BackgroundGeolocation.logger.getLog();
+    } catch (error) {
+        console.error('Error getting tracking log:', error);
+        return `Error reading log: ${error?.message || error}`;
+    }
+}
+
+/**
+ * Clears the plugin's log buffer so the next capture starts clean.
+ */
+export async function clearTrackingLog() {
+    try {
+        await BackgroundGeolocation.logger.destroyLog();
+        return true;
+    } catch (error) {
+        console.error('Error clearing tracking log:', error);
+        return false;
     }
 }

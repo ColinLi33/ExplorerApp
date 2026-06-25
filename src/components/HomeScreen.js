@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar, Animated, LayoutAnimation, UIManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform, ImageBackground } from 'react-native';
+import { View, Text, TextInput, Alert, StyleSheet, DeviceEventEmitter, ScrollView, TouchableOpacity, Switch, Platform, ImageBackground, Modal, Share, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
 import CryptoJS from 'crypto-js';
 
@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
-import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
+import { startLocationTracking, stopLocationTracking, getTrackingLog, clearTrackingLog } from '../services/LocationService';
 import * as ImagePicker from 'expo-image-picker';
 import { baseURL } from '../services/ApiService';
 import FriendsModal from './FriendsModal';
@@ -50,6 +50,42 @@ const HomeScreen = ({ route, navigation }) => {
     const [isUploading, setIsUploading] = useState(false);
     const [isFriendsModalVisible, setIsFriendsModalVisible] = useState(false);
     const [hasPendingRequests, setHasPendingRequests] = useState(false);
+
+    // Background-tracking log viewer (diagnostics)
+    const [isLogVisible, setIsLogVisible] = useState(false);
+    const [logText, setLogText] = useState('');
+    const [isLogLoading, setIsLogLoading] = useState(false);
+
+    const loadLog = async () => {
+        setIsLogLoading(true);
+        try {
+            const log = await getTrackingLog();
+            // Show newest entries first so the latest activity is at the top
+            setLogText(log ? log.split('\n').reverse().join('\n') : '(log is empty)');
+        } catch (error) {
+            setLogText(`Error reading log: ${error?.message || error}`);
+        } finally {
+            setIsLogLoading(false);
+        }
+    };
+
+    const openLog = async () => {
+        setIsLogVisible(true);
+        await loadLog();
+    };
+
+    const shareLog = async () => {
+        try {
+            await Share.share({ message: logText || '(log is empty)' });
+        } catch (error) {
+            console.error('Error sharing log:', error);
+        }
+    };
+
+    const handleClearLog = async () => {
+        await clearTrackingLog();
+        await loadLog();
+    };
 
     const fetchSettings = async () => {
         try {
@@ -553,6 +589,10 @@ const HomeScreen = ({ route, navigation }) => {
                                 </Text>
                             </TouchableOpacity>
                             
+                            <TouchableOpacity style={styles.secondaryButton} onPress={openLog}>
+                                <Text style={styles.secondaryButtonText}>View Tracking Log</Text>
+                            </TouchableOpacity>
+
                             <TouchableOpacity style={styles.logoutButton} onPress={logout}>
                                 <Text style={styles.logoutButtonText}>Logout</Text>
                             </TouchableOpacity>
@@ -561,12 +601,47 @@ const HomeScreen = ({ route, navigation }) => {
                 )}
                 </ScrollView>
                 
-                <FriendsModal 
+                <FriendsModal
                     visible={isFriendsModalVisible}
                     onClose={() => setIsFriendsModalVisible(false)}
                     navigation={navigation}
                     onUpdateBadge={setHasPendingRequests}
                 />
+
+                <Modal
+                    visible={isLogVisible}
+                    animationType="slide"
+                    onRequestClose={() => setIsLogVisible(false)}
+                >
+                    <SafeAreaView style={styles.logModalContainer}>
+                        <View style={styles.logHeader}>
+                            <Text style={styles.logTitle}>Tracking Log</Text>
+                            <TouchableOpacity onPress={() => setIsLogVisible(false)}>
+                                <Text style={styles.logClose}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.logToolbar}>
+                            <TouchableOpacity style={styles.logToolbarButton} onPress={loadLog}>
+                                <Text style={styles.logToolbarText}>Refresh</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.logToolbarButton} onPress={shareLog}>
+                                <Text style={styles.logToolbarText}>Share</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.logToolbarButton} onPress={handleClearLog}>
+                                <Text style={styles.logToolbarText}>Clear</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {isLogLoading ? (
+                            <ActivityIndicator style={{ marginTop: 24 }} color="#4CAF50" />
+                        ) : (
+                            <ScrollView style={styles.logScroll} contentContainerStyle={{ padding: 12 }}>
+                                <Text selectable style={styles.logBody}>{logText}</Text>
+                            </ScrollView>
+                        )}
+                    </SafeAreaView>
+                </Modal>
             </SafeAreaView>
         </ImageBackground>
     );
@@ -751,6 +826,53 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.8,
         shadowRadius: 5,
         elevation: 5,
+    },
+    logModalContainer: {
+        flex: 1,
+        backgroundColor: '#111',
+    },
+    logHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#333',
+    },
+    logTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    logClose: {
+        color: '#4CAF50',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    logToolbar: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        paddingVertical: 8,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#333',
+    },
+    logToolbarButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+    },
+    logToolbarText: {
+        color: '#4CAF50',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    logScroll: {
+        flex: 1,
+    },
+    logBody: {
+        color: '#ccc',
+        fontSize: 11,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     },
 });
 
