@@ -118,7 +118,7 @@ export async function startLocationTracking() {
             stationaryRadius: 25, // Radius to trigger stationary mode
             
             // Activity Recognition
-            stopTimeout: 3, // Minutes to wait before switching to stationary after stillness
+            stopTimeout: 5, // Minutes of stillness before sleeping.
             isMoving: true, // Start in moving mode to get immediate location
             
             // Heartbeat — fires every 15 minutes even when stationary.
@@ -171,8 +171,8 @@ export async function startLocationTracking() {
             maxBatchSize: 50,
             maxDaysToPersist: 14, // Keep unsent locations for up to 14 days
             
-            debug: false, // no audio cues / notifications; verbose log is enough
-            logLevel: BackgroundGeolocation.LOG_LEVEL_VERBOSE, // capture full background activity for diagnosis
+            debug: false,
+            logLevel: BackgroundGeolocation.LOG_LEVEL_ERROR, // production: errors only
         });
 
         console.log('[ready] BackgroundGeolocation state:', state);
@@ -266,31 +266,5 @@ export async function stopLocationTracking() {
         console.error('Error stopping location tracking:', error);
 
 
-    }
-}
-
-/**
- * Returns the plugin's verbose log as a string (newest entries last).
- * Used by the in-app log viewer to diagnose background behavior.
- */
-export async function getTrackingLog() {
-    try {
-        return await BackgroundGeolocation.logger.getLog();
-    } catch (error) {
-        console.error('Error getting tracking log:', error);
-        return `Error reading log: ${error?.message || error}`;
-    }
-}
-
-/**
- * Clears the plugin's log buffer so the next capture starts clean.
- */
-export async function clearTrackingLog() {
-    try {
-        await BackgroundGeolocation.logger.destroyLog();
-        return true;
-    } catch (error) {
-        console.error('Error clearing tracking log:', error);
-        return false;
     }
 }
