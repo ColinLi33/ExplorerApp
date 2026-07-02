@@ -11,6 +11,7 @@ import { jwtDecode } from 'jwt-decode';
 import { loginUser, logoutUser, isTokenExpired, refreshAuthToken } from '../services/AuthService';
 import { startLocationTracking, stopLocationTracking } from '../services/LocationService';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { baseURL } from '../services/ApiService';
 import FriendsModal from './FriendsModal';
 import { getFriendRequests } from '../services/FriendsService';
@@ -29,6 +30,45 @@ const hashPassword = (password) => {
         console.error('Hashing failed:', error);
         throw new Error('Password hashing failed');
     }
+};
+
+// Extract decimal GPS from expo-image-picker's exif. Handles both the flat keys
+// and iOS's nested {GPS} dictionary, applying the N/S/E/W ref to get the sign.
+const parseExifGps = (exif) => {
+    if (!exif) return null;
+
+    const signed = (value, ref, negativeRef) => {
+        if (value === undefined || value === null) return undefined;
+        let n = Number(value);
+        if (isNaN(n)) return undefined;
+        if (ref) n = (ref === negativeRef ? -1 : 1) * Math.abs(n); // normalize using ref when present
+        return n;
+    };
+
+    if (exif.GPSLatitude !== undefined && exif.GPSLongitude !== undefined) {
+        const lat = signed(exif.GPSLatitude, exif.GPSLatitudeRef, 'S');
+        const lng = signed(exif.GPSLongitude, exif.GPSLongitudeRef, 'W');
+        if (lat !== undefined && lng !== undefined) return { lat, lng };
+    }
+
+    const gps = exif['{GPS}'];
+    if (gps && gps.Latitude !== undefined && gps.Longitude !== undefined) {
+        const lat = signed(gps.Latitude, gps.LatitudeRef, 'S');
+        const lng = signed(gps.Longitude, gps.LongitudeRef, 'W');
+        if (lat !== undefined && lng !== undefined) return { lat, lng };
+    }
+
+    return null;
+};
+
+// Pull the photo's capture time from exif, in "YYYY:MM:DD HH:MM:SS" form, which
+// the server already knows how to parse.
+const getExifDate = (exif) => {
+    if (!exif) return null;
+    return exif.DateTimeOriginal
+        || exif.DateTimeDigitized
+        || (exif['{Exif}'] && (exif['{Exif}'].DateTimeOriginal || exif['{Exif}'].DateTimeDigitized))
+        || null;
 };
 
 const HomeScreen = ({ route, navigation }) => {
@@ -344,17 +384,46 @@ const HomeScreen = ({ route, navigation }) => {
             }
 
             const formData = new FormData();
-            assets.forEach((asset, index) => {
-                const uri = asset.uri;
-                const name = asset.fileName || uri.split('/').pop() || `photo_${index}.jpg`;
-                const type = 'image/jpeg';
-                
-                formData.append('photos', { 
-                    uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''), 
-                    name, 
-                    type 
+            const photoMeta = [];
+
+            for (let index = 0; index < assets.length; index++) {
+                const asset = assets[index];
+                const originalName = asset.fileName || asset.uri.split('/').pop() || `photo_${index}`;
+
+                // Convert to JPEG on-device so the server never decodes HEIC (which
+                // can OOM a small box). manipulateAsync re-encodes to JPEG regardless
+                // of input format. This strips EXIF, so we send GPS + timestamp
+                // (read from the picker's exif) explicitly in the metadata below.
+                let uploadUri = asset.uri;
+                try {
+                    const converted = await ImageManipulator.manipulateAsync(
+                        asset.uri,
+                        [],
+                        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+                    );
+                    uploadUri = converted.uri;
+                } catch (e) {
+                    console.warn('Image conversion failed, uploading original:', e?.message);
+                }
+
+                const name = `photo_${Date.now()}_${index}.jpg`;
+                formData.append('photos', {
+                    uri: Platform.OS === 'android' ? uploadUri : uploadUri.replace('file://', ''),
+                    name,
+                    type: 'image/jpeg',
                 });
-            });
+
+                const gps = parseExifGps(asset.exif);
+                photoMeta.push({
+                    originalName,
+                    lat: gps ? gps.lat : null,
+                    lng: gps ? gps.lng : null,
+                    timestamp: getExifDate(asset.exif),
+                });
+            }
+
+            // Parallel metadata, aligned by index with the appended photos.
+            formData.append('metadata', JSON.stringify(photoMeta));
 
             // Get timezone offset in format like "-05:00"
             const getTimezoneOffset = () => {

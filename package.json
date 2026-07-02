@@ -17,6 +17,7 @@
     "expo": "~55.0.18",
     "expo-blur": "~55.0.14",
     "expo-dev-client": "~55.0.28",
+    "expo-image-manipulator": "~55.0.18",
     "expo-image-picker": "~55.0.19",
     "expo-linear-gradient": "~55.0.13",
     "expo-status-bar": "~55.0.5",

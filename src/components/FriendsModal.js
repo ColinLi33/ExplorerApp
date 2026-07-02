@@ -149,19 +149,39 @@ const FriendsModal = ({ visible, onClose, navigation, onUpdateBadge }) => {
         }
     };
 
+    const handleCompare = async (username) => {
+        try {
+            const token = await AsyncStorage.getItem('accessToken');
+            const myUsername = await AsyncStorage.getItem('username');
+            onClose();
+            // Load your own map (compareUser triggers the overlay against this friend).
+            navigation.navigate('Map', { username: myUsername, compareUser: username, token });
+        } catch (error) {
+            console.error('Error navigating to compare map:', error);
+        }
+    };
+
     const renderFriendItem = ({ item }) => (
         <View style={styles.itemContainer}>
-            <Text style={styles.itemText}>{item.username}</Text>
+            <Text style={styles.itemText} numberOfLines={1}>{item.username}</Text>
             <View style={styles.actionButtons}>
                 {(item.visibility === 'public' || item.visibility === 'friends') && (
-                    <TouchableOpacity 
-                        style={styles.viewMapBtn}
-                        onPress={() => handleViewMap(item.username)}
-                    >
-                        <Text style={styles.viewMapBtnText}>Map</Text>
-                    </TouchableOpacity>
+                    <>
+                        <TouchableOpacity
+                            style={styles.viewMapBtn}
+                            onPress={() => handleCompare(item.username)}
+                        >
+                            <Text style={styles.viewMapBtnText}>Compare</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.viewMapBtn}
+                            onPress={() => handleViewMap(item.username)}
+                        >
+                            <Text style={styles.viewMapBtnText}>Map</Text>
+                        </TouchableOpacity>
+                    </>
                 )}
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.removeBtn}
                     onPress={() => handleRemoveFriend(item.username)}
                 >
@@ -370,11 +390,14 @@ const styles = StyleSheet.create({
     itemText: {
         color: '#FFF',
         fontSize: 16,
+        flexShrink: 1,
+        marginRight: 8,
     },
     actionButtons: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
+        flexShrink: 0,
     },
     viewMapBtn: {
         backgroundColor: 'rgba(255, 255, 255, 0.15)',

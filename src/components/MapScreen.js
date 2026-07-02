@@ -5,9 +5,14 @@ import { BlurView } from 'expo-blur';
 import { baseURL } from '../services/ApiService';
 
 const MapScreen = ({ route, navigation }) => {
-    const { username, viewUser, token } = route.params;
+    const { username, viewUser, compareUser, token } = route.params;
     const targetUser = viewUser || username;
-    const mapUrl = `${baseURL}/map/${targetUser}?token=${token}&app=true`;
+    // When comparing, load your own map with ?compare=<friend> so the web map
+    // auto-enters the overlay comparison against that friend.
+    let mapUrl = `${baseURL}/map/${targetUser}?token=${token}&app=true`;
+    if (compareUser) {
+        mapUrl += `&compare=${encodeURIComponent(compareUser)}`;
+    }
 
     return (
         <View style={styles.container}>
